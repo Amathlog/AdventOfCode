@@ -1,5 +1,6 @@
 from pathlib import Path
 import os
+from copy import deepcopy
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 
@@ -8,14 +9,15 @@ with entry_file.open("r") as f:
 
 # Add a final blank line if missing
 if entries[-1] != "\n":
-    entries += "\n"
+    entries += ["\n"]
 
 count = 0
 temp = set()
 all_data = [[]]
 for entry in entries:
-    # Strip \n
-    entry = entry[:-1]
+    # Strip \n if there is one!
+    if entry[-1] == '\n':
+        entry = entry[:-1]
     if entry == "":
         count += len(temp)
         temp = set()
