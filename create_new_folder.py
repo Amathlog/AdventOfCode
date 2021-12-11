@@ -19,7 +19,7 @@ for i in range(len(entries)):
         entries[i] = entries[i][:-1]
 """
 
-folder = Path(os.path.abspath(__file__)).parent
+folder = Path(os.path.abspath(__file__)).parent / "aoc"
 
 year = folder / year_number
 day = year / ("Day" + day_number)
