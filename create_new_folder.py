@@ -8,6 +8,7 @@ day_number = sys.argv[2]
 
 template = """from pathlib import Path
 import os
+import copy
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 
