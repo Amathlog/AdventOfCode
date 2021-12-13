@@ -11,8 +11,9 @@ import os
 import copy
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
+example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
 
-with entry_file.open("r") as f:
+with example_file.open("r") as f:
     entries = f.readlines()
 
 for i in range(len(entries)):
@@ -25,6 +26,7 @@ folder = Path(os.path.abspath(__file__)).parent / "aoc"
 year = folder / year_number
 day = year / ("Day" + day_number)
 entry = day / "entry.txt"
+example = day / "example.txt"
 solution = day / "solution.py"
 
 day.mkdir(parents=True, exist_ok=True)
