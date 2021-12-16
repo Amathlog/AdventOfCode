@@ -35,3 +35,4 @@ with solution.open('w') as f:
     f.write(template)
 
 entry.touch()
+example.touch()
