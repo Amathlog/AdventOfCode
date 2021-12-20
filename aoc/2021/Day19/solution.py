@@ -1,14 +1,16 @@
+from collections import defaultdict
 from pathlib import Path
 import os
 import copy
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 import numpy as np
-from numpy.core.defchararray import split
+
+DistanceDict = Dict[float, List[Tuple[int,int]]]
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
 
-with example_file.open("r") as f:
+with entry_file.open("r") as f:
     entries = f.readlines()
 
 for i in range(len(entries)):
@@ -28,6 +30,45 @@ def look_at(forward: np.ndarray, up: np.ndarray, translation: np.ndarray, dim: i
 
     return res
 
+def compute_look_at(forward: np.ndarray, up: np.ndarray, p: np.ndarray, p_: np.ndarray):
+    # Look at matrix is like this:
+    # | a d g -(alpha * a + beta * b + gamma * c) |
+    # | b e h -(alpha * d + beta * e + gamma * f) |
+    # | c f i -(alpha * g + beta * h + gamma * i) |
+    # | 0 0 0                  1                  |
+    #
+    # p is the point in ref 0, p = (x, y, z)
+    # p_ is the point in ref 1, p_ = (x_, y_, z_)
+    # T is the translation vector T = (alpha, beta, gamma)
+    # We have those equations:
+    # p_ = M @ p
+    # 
+    # a*x + d*y + g*z - x_ = alpha * a + beta * b + gamma * c
+    # b*x + e*y + h*z - y_ = alpha * d + beta * e + gamma * f
+    # c*x + f*y + i*z - z_ = alpha * g + beta * h + gamma * i
+    # If we constraint forward and up, to be only along a given axis (x, y or z axis), it also constraint right to a single axis.
+    # it means that in (a,b,c) only one is not 0. Same for (d,e,f) and (g, h, i)
+    # They are not randomly 0 either, it will simplify the equation to the right and let only 3 equations
+    # One for alpha, one for beta and one for gamma
+
+    right = np.cross(up, forward)
+    rotation_matrix = np.ones((3,3), dtype=np.int32)
+    rotation_matrix[:, 0] = forward
+    rotation_matrix[:, 1] = right
+    rotation_matrix[:, 2] = up
+
+    x_value, y_value, z_value = rotation_matrix @ p[:3] - p_[:3]
+    translation = np.array([1,2,3], dtype=np.int32)
+    
+    translation_x = np.dot(translation, forward)
+    translation_y = np.dot(translation, right)
+    translation_z = np.dot(translation, up)
+
+    for t, v in zip([translation_x, translation_y, translation_z], [x_value, y_value, z_value]):
+        translation[abs(t) - 1] = v if t > 0 else -v
+
+    return look_at(forward, up, translation)
+
 positive_x = np.array([1, 0, 0])
 negative_x = np.array([-1, 0, 0])
 positive_y = np.array([0, 1, 0])
@@ -35,33 +76,58 @@ negative_y = np.array([0, -1, 0])
 positive_z = np.array([0, 0, 1])
 negative_z = np.array([0, 0, -1])
 
-# Try 2 points in ref 1 and ref 2. If they correspond to the same
-# point (p1 in ref1 is p_1 in ref2 and p2 in ref1 is p_2 in ref2)
-# return a matrix to transform ref1 in ref2
-# Else return None
-def is_same_beacons(p1, p2, p_1, p_2) -> Optional[np.ndarray]:
-    temp = p1 - p2
-    temp_ = p_1 - p_2
 
-    temp = temp[:3]
-    temp_ = temp_[:3]
+def compute_all_distances(points: List[np.ndarray]) -> DistanceDict:
+    res = {}
+    for i, p1 in enumerate(points):
+        for j, p2 in enumerate(points[i+1:]):
+            l2_norm = np.linalg.norm(p1 - p2, ord=2)
+            if l2_norm in res:
+                assert(False) # Not good
+            res[l2_norm] = (i,i+1+j)
 
-    forward, right, up = None, None, None
-    if (temp == 0).any():
+    return res
+
+def find_overlapping(distances1: DistanceDict, distances2: DistanceDict, min_match: int = 12) -> Dict[int, int]:
+    same_distances = set(distances1.keys()).intersection(set(distances2.keys()))
+    if len(same_distances) < ((min_match-1) * (min_match) // 2):
         return None
 
-    coeff = temp_ / temp
+    # Count how often each point appears
+    all_points1, all_points2 = defaultdict(int), defaultdict(int)
+    for dist in same_distances:
+        p1, p2 = distances1[dist]
+        all_points1[p1] += 1
+        all_points1[p2] += 1
 
-    if (np.abs(coeff) != 1).any():
-        return None
+        p_1, p_2 = distances2[dist]
+        all_points2[p_1] += 1
+        all_points2[p_2] += 1
 
-    forward = positive_x if coeff[0] > 0 else negative_x
-    right = positive_y if coeff[1] > 0 else negative_y
-    up = positive_z if coeff[2] > 0 else negative_z
+    # We know that at least `min_match` points that are detected by both scanners.
+    # Find the mapping between them by doing set intersections between same distances.
+    mapping_1_to_2 = {}
+    for dist in same_distances:
+        p1, p2 = distances1[dist]
 
-    translation = p_1[:3] * coeff - p1[:3]
+        # A good point should appear multiple times, at least min_match - 1
+        if all_points1[p1] < min_match - 1 or all_points1[p2] < min_match - 1:
+            continue
 
-    return look_at(forward, up, translation)        
+        new_set = set(distances2[dist])
+
+        if p1 not in mapping_1_to_2:
+            mapping_1_to_2[p1] = set(new_set)
+        else:
+            mapping_1_to_2[p1].intersection_update(new_set)
+
+        if p2 not in mapping_1_to_2:
+            mapping_1_to_2[p2] = set(new_set)
+        else:
+            mapping_1_to_2[p2].intersection_update(new_set)
+
+    return {k: v.pop() for k, v in mapping_1_to_2.items() if len(v) == 1}
+
 
 if __name__ == "__main__":
     scanners = []
@@ -73,60 +139,89 @@ if __name__ == "__main__":
             continue
         scanners[-1].append(np.concatenate([[int(v) for v in l.split(',')], [1]]))
 
-    all_beacons = {hash(p.tobytes()): p for p in scanners[0]}
+    distances = []
+    for s in scanners:
+        distances.append(compute_all_distances(s))
 
-    # We want to find all the beacons, relative to scanner 0
-    # To do so, we will find all the overlapping scanners with scanner 0.
-    # Then we can find the overlapping one with those, and then again
-    # until we find all the beacons.
-    # We keep a map between scanner 0 and the other ones
+    all_points = set([tuple(p) for p in scanners[0]])
+    transforms_to_scanner_0_ref = {0: np.identity(4, dtype=np.int32)}
 
-    scanner0_to_others = {0: np.identity(4, dtype=np.int32)}
-    scanners = scanners[:2]
+    scanners_to_check = [0]
 
-    list_of_overlap = [(0, scanners[0])]
-    number_of_matches = 12
-    while len(list_of_overlap) > 0:
-        idx, current_scanner = list_of_overlap.pop()
-        for other_idx, other in enumerate(scanners):
-            if other_idx in scanner0_to_others:
+    while len(scanners_to_check) > 0:
+        curr = scanners_to_check.pop(0)
+
+        for other in range(len(scanners)):
+            if other in transforms_to_scanner_0_ref:
+                # Already found
                 continue
 
-            nb_match = 0
+            mapping_first_to_second = find_overlapping(distances[curr], distances[other])
+            if mapping_first_to_second is None:
+                continue
+
+            # Get the first 2 points
+            # Test all the possible look at matrix, that will work for all points
+            # (Can be done with linear regression, but I'm a noob)
+            p, p_ = list(mapping_first_to_second.items())[0]
+            p = scanners[curr][p]
+            p_ = scanners[other][p_]
+
+            # We want to transform p_ into p (find the matrix that will transform ref 2 to ref 1)
+            all_vectors = [positive_x, positive_y, positive_z, negative_x, negative_y, negative_z]
+            found = False
             la = None
-            match = False
-            all_la = {}
-            for i in range(len(current_scanner)):
-                for j in range(i + 1, len(current_scanner)):
-                    for i_ in range(len(current_scanner)):
-                        for j_ in range(i_ + 1, len(current_scanner)):
-                            la = is_same_beacons(other[i_], other[j_], current_scanner[i], current_scanner[j])
-                            if la is None:
-                                continue
+            for forward in all_vectors:
+                for up in all_vectors:
+                    if np.dot(forward, up) != 0:
+                        continue
 
-                            hash_la = hash(la.tobytes())
-                            if hash_la in all_la:
-                                all_la[hash_la][1] += 1
-                            else:
-                                all_la[hash_la] = [la, 1]
+                    tentative_look_at = compute_look_at(forward, up, p_, p)
+                    match = True
+                    for p1, p2 in mapping_first_to_second.items():
+                        p1 = scanners[curr][p1]
+                        p2 = scanners[other][p2]
 
-                            if all_la[hash_la][1] == number_of_matches:
-                                match = True
-                                break
-
-                        if match:
+                        transformed = tentative_look_at @ p2
+                        if (transformed != p1).any():
+                            match = False
                             break
-                    if match:
-                        break
-                if match:
+
+                    if not match:
+                        continue
+
+                    # We got a match!
+                    la = tentative_look_at
+                    found = True
+
+                if found:
                     break
 
-            if match:
-                scanner0_to_others[other_idx] = scanner0_to_others[idx] @ la
-                for p in other:
-                    new_p = scanner0_to_others[other_idx] @ p
-                    all_beacons[hash(new_p.tobytes())] = new_p
+            assert(found)
+            # Store the tranformation to scanner 0
+            transforms_to_scanner_0_ref[other] = transforms_to_scanner_0_ref[curr] @ la
 
-                list_of_overlap.append((other_idx, other))
+            # And finally convert all the points of this scanner in scanner 0 ref
+            for p in scanners[other]:
+                new_p = transforms_to_scanner_0_ref[other] @ p
+                all_points.add(tuple(new_p))
 
-print(len(all_beacons))
+            scanners_to_check.append(other)
+
+    print("First answer:", len(all_points))
+
+    # Now that we have the position of all the scanners relative to scanner 0, we can try to find the maximum distance between them
+    max_dist = 0
+    for i in range(len(scanners)):
+        for j in range(len(scanners)):
+            if i == j:
+                continue
+
+            pos_i = transforms_to_scanner_0_ref[i][:3,3]
+            pos_j = transforms_to_scanner_0_ref[j][:3,3]
+
+            dist = int(np.linalg.norm(pos_i - pos_j, ord=1))
+            if dist > max_dist:
+                max_dist = dist
+
+    print("Second answer:", max_dist)
