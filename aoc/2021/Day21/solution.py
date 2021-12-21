@@ -33,7 +33,7 @@ def get_next_player(curr_player: int) -> int:
 
 
 ### PART 1 ###
-def first_part(p1_pos, p2_pos):
+def first_part(p1_pos: int, p2_pos: int) -> None:
     curr_player = 0
     nb_rolls = 0
     generator = roll_deterministic_100()
@@ -53,7 +53,7 @@ def first_part(p1_pos, p2_pos):
 
 
 ### PART 2 ###
-def second_part(initial_p1_pos, initial_p2_pos):
+def second_part(initial_p1_pos: int, initial_p2_pos: int, max_score: int = 21) -> None:
     # Number of parallel universe for each roll
     # We roll 3 dices with 3 faces, the possibilities for the sum of
     # those 3 rolls are here.
@@ -78,7 +78,7 @@ def second_part(initial_p1_pos, initial_p2_pos):
 
         if state not in cache:
             # It is not in the cache yet, therefore compute it.
-            if p1_score < 21 and p2_score < 21:
+            if p1_score < max_score and p2_score < max_score:
                 # There is no winner yet, keep rolling
                 res = [0, 0]
                 for r in range(3, 10):
@@ -98,7 +98,7 @@ def second_part(initial_p1_pos, initial_p2_pos):
                 cache[state] = tuple(res)
             else:
                 # We reach the universe where one player win.
-                if p1_score >= 21:
+                if p1_score >= max_score:
                     cache[state] = (1, 0)
                 else:
                     cache[state] = (0, 1)
