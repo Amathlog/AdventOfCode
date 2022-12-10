@@ -6,5 +6,5 @@ setup(name='AdventOfCode',
       author='Adrien Logut',
       author_email='adrien.logut@gmail.com',
       packages=["aoc"],
-      requires=["numpy"]
+      requires=["numpy", "reprint"]
      )
