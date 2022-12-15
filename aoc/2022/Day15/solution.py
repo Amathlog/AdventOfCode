@@ -7,12 +7,19 @@ from typing import Tuple, List
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
 
-with example_file.open("r") as f:
+with entry_file.open("r") as f:
     entries = f.readlines()
 
 for i in range(len(entries)):
     if entries[i][-1] == '\n':
         entries[i] = entries[i][:-1]
+
+with example_file.open("r") as f:
+    example_entries = f.readlines()
+
+for i in range(len(example_entries)):
+    if example_entries[i][-1] == '\n':
+        example_entries[i] = example_entries[i][:-1]
 
 class Position:
     def __init__(self, x: int, y: int):
@@ -71,8 +78,8 @@ class Range:
         return res.is_valid(), res
 
     def merge(self, other: "Range") -> Tuple[bool, "Range"]:
-        intersect, _ = self.get_intersection(other)
-        if not intersect:
+        does_intersect, intersect = self.get_intersection(other)
+        if not does_intersect and (intersect.min - intersect.max) > 1:
             return False, None
         
         return True, Range(min(self.min, other.min), max(self.max, other.max))
@@ -108,9 +115,8 @@ class Range:
         return res
 
 
-def search(sensors: set[Sensor], beacons: set[Position], line_to_search: int) -> int:
+def get_ranges(sensors: set[Sensor], beacons: set[Position], line_to_search: int, min_limit: int = None, max_limit: int = None) -> List[Range]:
     sensors_to_check: set[Sensor] = set()
-
     ranges: List[Range] = []
 
     for s in sensors:
@@ -119,9 +125,19 @@ def search(sensors: set[Sensor], beacons: set[Position], line_to_search: int) ->
             sensors_to_check.add(s)
 
             diff = s.distance_to_closest - min_dist
-            ranges.append(Range(s.pos.x - diff, s.pos.x + diff))
+            min_range = s.pos.x - diff
+            max_range = s.pos.x + diff
+            if min_limit is not None:
+                min_range = max(min_range, min_limit)
+            if max_limit is not None:
+                max_range = min(max_range, max_limit)
 
-    reduce_ranges = Range.reduce(ranges)
+            ranges.append(Range(min_range, max_range))
+
+    return Range.reduce(ranges)
+
+def search(sensors: set[Sensor], beacons: set[Position], line_to_search: int) -> int:
+    reduce_ranges = get_ranges(sensors, beacons, line_to_search)
     nb_beacons_in_range = 0
     for b in beacons:
         if b.y != line_to_search:
@@ -134,8 +150,7 @@ def search(sensors: set[Sensor], beacons: set[Position], line_to_search: int) ->
 
     return sum([len(r) for r in reduce_ranges]) - nb_beacons_in_range
 
-
-if __name__ == "__main__":
+def solve(entries: List[str], line_to_search: int, max_y: int):
     sensors: set[Sensor] = set()
     beacons: set[Position] = set()
 
@@ -147,23 +162,18 @@ if __name__ == "__main__":
         beacons.add(beacon)
         sensors.add(Sensor(Position(*m.group(1,2)), beacon))
 
-    print("Part 1:", search(sensors, beacons, 2000000))
+    print("Part 1:", search(sensors, beacons, line_to_search))
 
-    for y in range(20):
-        temp = search(sensors, beacons, y)
-        print(y, temp)
+    for y in range(max_y):
+        ranges = get_ranges(sensors, beacons, y, 0, max_y)
+        if len(ranges) == 2:
+            x = ranges[0].max + 1
+            print(f"Part 2: x = {x}; y = {y} => frequency = {4000000 * x + y}")
+            break
 
-    # count = 0
-    # for x in range(left_most.pos.x - left_most.distance_to_closest, right_most.pos.x + right_most.distance_to_closest + 1):
-    #     curr = Position(x, line_to_search)
+if __name__ == "__main__":
+    print("For example file:")
+    solve(example_entries, 10, 20)
 
-    #     if curr in beacons:
-    #         continue
-
-    #     for s in sensors_to_check:
-    #         dist = curr.distance_man(s.pos)
-    #         if dist <= s.distance_to_closest:
-    #             count += 1
-    #             break
-
-    # print(count)
+    print("For entry file:")
+    solve(entries, 2000000, 4000000)
