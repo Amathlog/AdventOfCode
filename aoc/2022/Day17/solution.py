@@ -46,11 +46,20 @@ class Grid:
         assert len(self.grid) == (new_height - self.grid_offset)
         self.height = new_height
 
+    def comparison(self):
+        return self.grid[:(self.current_max_height - self.grid_offset)]
+
+    def __eq__(self, other: "Grid"):
+        return self.comparison() == other.comparison()
+
     def __getitem__(self, position: Position):
         return self.grid[position.y][position.x]
 
     def __setitem__(self, position: Position, new_type: Type):
         self.grid[position.y][position.x] = new_type
+
+    def __hash__(self) -> int:
+        return hash(tuple((t for l in self.comparison() for t in l)))
 
     def fix_block(self, block: "Block"):
         all_y = set()
@@ -179,9 +188,37 @@ def simulate(entry: str, max_count: int):
     current_entry_index = 0
     count = 0
 
+    seen = {}
+    tracking = True
+
     while count < max_count:
+        # We keep a dict of all the grid we seen, with a given block and entry
+        # to find cycles.
+        temp = (hash(grid), current_block_index, current_entry_index)
+        if temp in seen:
+            # When we find a cycle, we just have to advance the simulation
+            # for as many full cycle we have for the remaining number of steps.
+            diff_count = count - seen[temp][0]
+            diff_height = grid.current_max_height - seen[temp][1]
+
+            remaining = max_count - count
+            todo = remaining // diff_count
+
+            count += todo * diff_count
+            new_height = diff_height * todo
+            grid.current_max_height += new_height
+            grid.height += new_height
+            grid.grid_offset += new_height
+
+            # No need to track seen anymore
+            seen.clear()
+            tracking = False
+
+        if tracking:
+            seen[temp] = (count, grid.current_max_height)
+
+        # Spawn a new block
         current_block = all_blocks[current_block_index % len(all_blocks)].spawn_block(grid)
-        #print(grid.to_string(current_block))
 
         while True:
             # first try to move it accroding to entry
@@ -190,29 +227,33 @@ def simulate(entry: str, max_count: int):
                 current_block.go_left()
             elif dir == ">" and not current_block.will_collide(grid, 1, 0):
                 current_block.go_right()
-            #print("Direction:", dir)
             current_entry_index += 1
             if current_entry_index >= len(entry):
                 current_entry_index = 0
 
+            # Then try to move down
+            # If we collide, fix the block and spawn a new block
             if current_block.will_collide(grid, 0, -1):
                 grid.fix_block(current_block)
                 break
             current_block.go_down()
-            #print(grid.to_string(current_block))
         
         current_block_index += 1
         if current_block_index >= len(all_blocks):
             current_block_index = 0
         count += 1
 
-    print(f"Part 1: Size after {max_count} blocks = {grid.current_max_height}")
+    return grid.current_max_height
 
 
 if __name__ == "__main__":
     import time
-    e = entries
-    x = simulate(e[0], 2022)
-    start = time.perf_counter()
-    x = simulate(e[0], 1000000000000)
-    print(f"Time taken = {time.perf_counter() - start} s")
+    max_counts = [2022, 1000000000000]
+    tests = [("Example entries:", example_entries[0]), ("My entries:", entries[0])]
+
+    for test_text, test_entry in tests:
+        print(test_text)
+        for max_count in max_counts:
+            start = time.perf_counter()
+            print(f"With {max_count} blocks, we have a height of {simulate(test_entry, max_count)}")
+            print(f"Time taken = {time.perf_counter() - start}s")
