@@ -214,9 +214,5 @@ if __name__ == "__main__":
     e = entries
     x = simulate(e[0], 2022)
     start = time.perf_counter()
-    x = simulate(e[0], 100000)
-    print(f"Time taken = {time.perf_counter() - start} s")
-
-    start = time.perf_counter()
-    x = simulate(e[0], 5000)
+    x = simulate(e[0], 1000000000000)
     print(f"Time taken = {time.perf_counter() - start} s")
