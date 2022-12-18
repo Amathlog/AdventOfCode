@@ -1,76 +1,108 @@
 from pathlib import Path
 import os
 import copy
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Union
 import sys
+import time
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
 
-class LavaDroplet:
-    def __init__(self, coord: Tuple[int, int, int]):
-        self.x, self.y, self.z = coord
-        self.touching = 0
+class Profiling:
+    def __init__(self):
+        self.start = 0
+
+    def __enter__(self):
+        self.start = time.perf_counter()
+
+    def __exit__(self, *args):
+        print(f"Time taken = {(time.perf_counter() - self.start) * 1000:.2f}ms")
+
+class Position:
+    def __init__(self, x: int, y: int, z: int):
+        self.x = x
+        self.y = y
+        self.z = z
+
+    def min(self, other: "Position"):
+        self.x = min(self.x, other.x)
+        self.y = min(self.y, other.y)
+        self.z = min(self.z, other.z)
+
+    def max(self, other: "Position"):
+        self.x = max(self.x, other.x)
+        self.y = max(self.y, other.y)
+        self.z = max(self.z, other.z)
+
+    def __eq__(self, other: "Position") -> bool:
+        return self.x == other.x and self.y == other.y and self.z == other.z
+
+    def __hash__(self) -> int:
+        return hash((self.x, self.y, self.z))
 
     def __repr__(self) -> str:
         return str((self.x, self.y, self.z))
 
-    def update_touching(self, others: List["LavaDroplet"]):
-        for other in others:
-            diff = (abs(self.x - other.x), abs(self.y - other.y), abs(self.z - other.z))
-            if diff[0] > 1 or diff[1] > 1 or diff[2] > 1:
-                continue
+    def __add__(self, other: "Position") -> "Position":
+        return Position(self.x + other.x, self.y + other.y, self.z + other.z)
 
-            if diff in [(1, 0, 0), (0, 1, 0), (0, 0, 1)]:
-                    self.touching += 1
-                    other.touching += 1
+    def neighbors_gen(self):
+        candidates = [Position(1, 0, 0), Position(-1, 0, 0), Position(0, 1, 0), Position(0, -1, 0), Position(0, 0, 1), Position(0, 0, -1)]
+        for c in candidates:
+            yield self + c
+
+
+class LavaDroplet:
+    def __init__(self, x: int, y: int, z: int):
+        self.pos = Position(x, y, z)
+        self.touching = 0
+
+    def __repr__(self) -> str:
+        return str(self.pos)
+
+    def update_touching(self, others: set["LavaDroplet"]):
+        for neighbor in self.pos.neighbors_gen():
+            if neighbor in others:
+                self.touching += 1
 
     def update_unreachable(self, unreachable_air: set[Tuple[int, int, int]]):
-        candidates = [
-            (self.x + 1, self.y, self.z),
-            (self.x - 1, self.y, self.z),
-            (self.x, self.y + 1, self.z),
-            (self.x, self.y - 1, self.z),
-            (self.x, self.y, self.z + 1),
-            (self.x, self.y, self.z - 1)
-            ]
-
-        for c in candidates:
-            if c in unreachable_air:
+        for neighbor in self.pos.neighbors_gen():
+            if neighbor in unreachable_air:
                 self.touching += 1
 
     def get_non_covered_surface(self):
         assert self.touching <= 6
         return 6 - self.touching
 
+    def __eq__(self, other: Union["LavaDroplet", Position]) -> bool:
+        if type(other) is Position:
+            return self.pos == other
+
+        return self.pos == other.pos
+
+    def __hash__(self) -> int:
+        return hash(self.pos)
+
 def flow3d(entries: List[LavaDroplet]):
     # Find the boundaries
-    x_min, y_min, z_min = (sys.maxsize,) * 3
-    x_max, y_max, z_max = (-999999,) * 3
+    min_pos = Position(sys.maxsize, sys.maxsize, sys.maxsize)
+    max_pos = Position(-99999, -99999, -99999)
 
     all_lava_droplets = set()
 
     for e in entries:
-        x_min = min(x_min, e.x)
-        y_min = min(y_min, e.y)
-        z_min = min(z_min, e.z)
-        x_max = max(x_max, e.x)
-        y_max = max(y_max, e.y)
-        z_max = max(z_max, e.z)
-        all_lava_droplets.add((e.x, e.y, e.z))
+        min_pos.min(e.pos)
+        max_pos.max(e.pos)
+        all_lava_droplets.add(e.pos)
 
     # Add padding
-    x_min -= 1
-    y_min -= 1
-    z_min -= 1
-    x_max += 1
-    y_max += 1
-    z_max += 1
+    min_pos = min_pos + Position(-1, -1, -1)
+    max_pos = max_pos + Position(1, 1, 1)
 
-    all_air_droplets = set(((i,j,k) for i in range(x_min, x_max+1) for j in range(y_min, y_max+1) for k in range(z_min, z_max+1))).difference(all_lava_droplets)
+    all_air_droplets = set((Position(i,j,k) for i in range(min_pos.x, max_pos.x+1) for j in range(min_pos.y, max_pos.y+1) for k in range(min_pos.z, max_pos.z+1))).difference(all_lava_droplets)
     all_air_droplets_reachable = set()
 
-    stack = [(x_min, y_min, z_min)]
+    stack = [min_pos]
 
     while len(stack) != 0:
         current = stack.pop()
@@ -78,18 +110,9 @@ def flow3d(entries: List[LavaDroplet]):
             continue
 
         all_air_droplets_reachable.add(current)
-        
-        candidates = [
-            (current[0] + 1, current[1], current[2]),
-            (current[0] - 1, current[1], current[2]),
-            (current[0], current[1] + 1, current[2]),
-            (current[0], current[1] - 1, current[2]),
-            (current[0], current[1], current[2] + 1),
-            (current[0], current[1], current[2] - 1)
-            ]
 
-        for c in candidates:
-            if c[0] < x_min or c[0] > x_max or c[1] < y_min or c[1] > y_max or c[2] < z_min or c[2] > z_max:
+        for c in current.neighbors_gen():
+            if c.x < min_pos.x or c.x > max_pos.x or c.y < min_pos.y or c.y > max_pos.y or c.z < min_pos.z or c.z > max_pos.z:
                 continue
 
             if c in all_lava_droplets:
@@ -111,26 +134,24 @@ def parse_entry(path: str) -> List[LavaDroplet]:
         if entries[i][-1] == '\n':
             entries[i] = entries[i][:-1]
 
-        entries[i] = LavaDroplet(tuple(int(e) for e in entries[i].split(",")))
+        entries[i] = LavaDroplet(*tuple(int(e) for e in entries[i].split(",")))
 
     return entries
 
 entries = parse_entry(entry_file)
 example_entries = parse_entry(example_file)
-simple_entries = [LavaDroplet((1, 1, 1)), LavaDroplet((2, 1, 1))]
-another_simple_entries = [LavaDroplet((1, 1, 1)), LavaDroplet((2, 1, 1)), LavaDroplet((4, 1, 1)), LavaDroplet((3, 1, 1))]
 
 def solve(entries: List[LavaDroplet]):
-    for i, entry in enumerate(entries):
-        if i == len(entries) - 1:
-            continue
-        entry.update_touching(entries[i+1:])
+    with Profiling():
+        entries_set = set(entries)
+        for entry in entries:
+            entry.update_touching(entries_set)
 
-    print("Part 1: Result =", sum((e.get_non_covered_surface() for e in entries)))
+        print("Part 1: Result =", sum((e.get_non_covered_surface() for e in entries)))
 
-    flow3d(entries)
-
-    print("Part 2: Result =", sum((e.get_non_covered_surface() for e in entries)))
+    with Profiling():
+        flow3d(entries)
+        print("Part 2: Result =", sum((e.get_non_covered_surface() for e in entries)))
 
 if __name__ == "__main__":
     solve(entries)
