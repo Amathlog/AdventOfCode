@@ -207,16 +207,56 @@ class Character:
         self.distance_to_dir += nb_steps
 
 
-def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nodes_to_open: set[Node], current_flow_rate: int):
+class GameState:
+    def __init__(self, characters: List[Character], opened_nodes: set[Node], minutes: int, current_flow_rate: int):
+        characters_state = []
+        for c in characters:
+            if c.distance_to_dir == 0:
+                characters_state.append((c.current,))
+            else:
+                characters_state.append((c.direction, c.distance_to_dir))
+
+        self.characters_state = tuple(frozenset(characters_state))
+        self.opened_nodes = tuple(frozenset(list(opened_nodes)))
+        self.minutes = minutes
+        self.current_flow_rate = current_flow_rate
+
+    def __hash__(self):
+        return hash((*self.characters_state, *self.opened_nodes, self.minutes, self.current_flow_rate))
+
+    def __eq__(self, other):
+        return hash(self) == hash(other)
+
+
+def simulation2(characters: List[Character], opened_nodes: set[Node], minutes: int, nodes_to_open: set[Node], current_flow_rate: int, all_states = None):
+    if all_states is None:
+        all_states = {}
+
+    game_state = GameState(characters, opened_nodes, minutes, current_flow_rate)
+
+    if game_state in all_states:
+        return all_states[game_state]
+
     best_estimate = minutes * current_flow_rate
 
     if len(nodes_to_open) == 0 and all((c.direction is None for c in characters)):
-        return minutes * current_flow_rate
+        all_states[game_state] = best_estimate
+        return best_estimate
 
     characters_to_update = [(c, c.current) for c in characters if c.distance_to_dir == 0]
 
     permutations = list(itertools.permutations(list(nodes_to_open), len(characters_to_update)))
     all_times = []
+
+    # If all characters needs to take action and are on the same tile, we can remove mirror permutations
+    if len(characters) > 1 and len(characters_to_update) == len(characters) and all((c.current == characters[0].current for c in characters)):
+        set_permutations = set()
+        for p in permutations:
+            if p in set_permutations or (p[1], p[0]) in set_permutations:
+                continue
+            set_permutations.add(p)
+
+        permutations = list(set_permutations)
 
     ran_once = False
     start = None
@@ -227,7 +267,8 @@ def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nod
                 all_times.append(time.perf_counter() - start)
             start = time.perf_counter()
             remaining_time = str(np.mean(all_times) * (len(permutations) - i)) if len(all_times) > 0 else "N/A"
-            print(f"Computing permuatation {i} over {len(permutations)}. Estimated time remaining = {remaining_time}s")
+            elapsed_time = sum(all_times) if len(all_times) > 0 else 0
+            print(f"Computing permuatation {i} over {len(permutations)}. Elasped time: {elapsed_time}s ; Estimated time remaining = {remaining_time}s")
         ran_once = True
         new_nodes_to_open = set(list(nodes_to_open))
         for index, (c, c_current) in enumerate(characters_to_update):
@@ -261,8 +302,9 @@ def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nod
             if c.step(nb_steps):
                 current_flow_rate += c.current.flow_rate
                 c.current.opened = True
+                opened_nodes.add(c.current)
 
-        estimated = simulation2(characters, nodes, minutes - nb_steps, new_nodes_to_open, current_flow_rate)
+        estimated = simulation2(characters, opened_nodes, minutes - nb_steps, new_nodes_to_open, current_flow_rate, all_states)
 
         if total + estimated > best_estimate:
             best_estimate = total + estimated
@@ -271,6 +313,7 @@ def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nod
             if c.distance_to_dir == 0:
                 current_flow_rate -= c.current.flow_rate
                 c.current.opened = False
+                opened_nodes.remove(c.current)
                 c.direction = c.current
                 c.current = current[c.id]
 
@@ -279,6 +322,8 @@ def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nod
     # need to make sure that characters that was updated are back to 0
     for c, _ in characters_to_update:
         c.distance_to_dir = 0
+
+    all_states[game_state] = best_estimate
 
     return best_estimate
 
@@ -293,7 +338,7 @@ def solve(input: List[str], minutes: int):
         if n.name == "AA":
             start_node = n
             break
-    res, best_candidates = simulation(start_node, nodes, minutes, nodes_to_open, 0)
+    res, best_candidates = simulation(start_node, set(), minutes, nodes_to_open, 0)
     return res
 
 def solve2(input: List[str], minutes: int, nb_characters: int):
