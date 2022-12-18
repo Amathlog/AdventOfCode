@@ -5,6 +5,9 @@ from typing import List, Dict, Tuple
 import re
 import random
 import sys
+import itertools
+import time
+import numpy as np
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
@@ -181,160 +184,103 @@ def simulation(start: Node, nodes: set[Node], minutes: int, nodes_to_open: List[
 class Character:
     def __init__(self, id: int, start_node: Node):
         self.id = id
-        self.current = start_node
-        self.path: List[Node] = []
-        self.is_opening = False
         self.direction: Node = None
+        self.distance_to_dir: int = 0
+        self.current = start_node
+    
+    def step(self, nb_steps: int) -> bool:
+        if self.distance_to_dir == sys.maxsize:
+            return False
 
-        self.previous_states: List[Tuple[bool, Node]] = []
-
-    # Return the change in flow rate
-    def step(self) -> int:
-        if self.is_opening:
-            assert self.current.is_opening and not self.current.opened
-            self.current.is_opening = False
-            self.current.opened = True
-            self.is_opening = False
-            self.previous_states.append((True, None))
+        assert nb_steps <= self.distance_to_dir
+        self.distance_to_dir -= nb_steps
+        if self.distance_to_dir == 0:
+            self.current = self.direction
             self.direction = None
-            return self.current.flow_rate
 
-        if len(self.path) != 0:
-            next_node = self.path.pop()
-            assert (next_node in self.current.neighbors) and (next_node != self.current)
-            self.previous_states.append((False, self.current))
-            self.current = next_node
-            if len(self.path) == 0:
-                self.is_opening = True
-                self.current.is_opening = True
-            return 0
+        return self.distance_to_dir == 0
 
-        assert False
-        return 0
-
-    # Return the change in flow rate
-    def backtrack(self) -> int:
-        assert len(self.previous_states) > 0
-        opened_changed, previous_node = self.previous_states.pop()
-        if not opened_changed:
-            self.path.append(self.current)
-            self.current.is_opening = False
-            self.is_opening = False
-            self.current = previous_node
-            return 0
-        else:
-            self.path.clear()
-            self.is_opening = True
-            self.current.is_opening = True
-            self.current.opened = False
-            self.direction = self.current
-            return -self.current.flow_rate
-
-    def update_path(self, path: List[Node]):
-        if path[-1] == self.current:
-            self.path = list(path[:-1])
-        else:
-            self.path = list(path)
-
-        assert len(self.path) > 0
-        self.direction = self.path[0]
-
-    def is_done(self):
-        return len(self.path) == 0 and not self.is_opening
-
-    def __repr__(self) -> str:
-        return f"Character {self.id}: curr = {self.current}, path = {self.path}, direction = {self.direction}, is_opening = {self.is_opening}"
-
-
-def test_character(start_node: Node):
-    character = Character(0, start_node)
-
-    print(character)
-
-    all_nodes = list(start_node.paths_to_others.keys())
-
-    first_target = random.choice(all_nodes)
-    random_path1 = start_node.paths_to_others[first_target]
-    random_path2 = random_path1[0].paths_to_others[random.choice(all_nodes)]
-    curr = start_node
-
-    print("Updating path...")
-    character.update_path(random_path1)
-    print(character)
-    while not character.step():
-        print(f"  - {character} ; curr_opened = {character.current.opened}")
-
-    print(f"  - {character} ; curr_opened = {character.current.opened}")
-    print("Updating path...")
-    character.update_path(random_path2)
-    print(character)
-    while not character.step():
-        print(f"  - {character} ; curr_opened = {character.current.opened}")
-
-    print(f"  - {character} ; curr_opened = {character.current.opened}")
-
-    print("Backtracking")
-    while len(character.previous_states) > 0:
-        character.backtrack()
-        print(f"  - {character} ; curr_opened = {character.current.opened}")
+    def backtrack(self, nb_steps: int):
+        if self.distance_to_dir == sys.maxsize:
+            return
+    
+        self.distance_to_dir += nb_steps
 
 
 def simulation2(characters: List[Character], nodes: set[Node], minutes: int, nodes_to_open: set[Node], current_flow_rate: int):
-    best_estimate = -1
+    best_estimate = minutes * current_flow_rate
 
-    if len(nodes_to_open) == 0 and all(c.is_done() for c in characters):
+    if len(nodes_to_open) == 0 and all((c.direction is None for c in characters)):
         return minutes * current_flow_rate
 
-    all_candidates = [[] for _ in range(len(characters))]
-    max_candidates = -1
+    characters_to_update = [(c, c.current) for c in characters if c.distance_to_dir == 0]
 
-    has_decision_point = False
+    permutations = list(itertools.permutations(list(nodes_to_open), len(characters_to_update)))
+    all_times = []
 
-    for c in characters:
-        if c.is_done():
-            all_candidates[c.id] = get_candidates(c.current, nodes_to_open, minutes)
-            has_decision_point = True
-            max_candidates = max(len(all_candidates[c.id]), max_candidates)
+    ran_once = False
+    start = None
+    i = 0
+    while not ran_once or i < len(permutations):
+        if current_flow_rate == 0:
+            if start is not None:
+                all_times.append(time.perf_counter() - start)
+            start = time.perf_counter()
+            remaining_time = str(np.mean(all_times) * (len(permutations) - i)) if len(all_times) > 0 else "N/A"
+            print(f"Computing permuatation {i} over {len(permutations)}. Estimated time remaining = {remaining_time}s")
+        ran_once = True
+        new_nodes_to_open = set(list(nodes_to_open))
+        for index, (c, c_current) in enumerate(characters_to_update):
+            if i < len(permutations):
+                node = permutations[i][index]
+                c.distance_to_dir = c_current.distance_to(node)
+                if c.distance_to_dir > minutes:
+                    c.distance_to_dir = sys.maxsize
+                    c.direction = None
+                else:
+                    c.direction = node
+                    new_nodes_to_open.remove(node)
+            else:
+                # Nothing else to do, don't contribute to next decision point
+                c.distance_to_dir = sys.maxsize
+                c.direction = None
 
-    if not has_decision_point:
+        i += 1
+        # Nothing left to do
+        if all((c.direction is None for c in characters)):
+            for c, _ in characters_to_update:
+                c.distance_to_dir = 0
+            continue
+            
+        nb_steps = min((c.distance_to_dir for c in characters))
+        total = nb_steps * current_flow_rate
+
+        current = {}
         for c in characters:
-            c.step()
-        
-        res = current_flow_rate + simulation2(characters, nodes, minutes - 1, nodes_to_open, current_flow_rate)
+            current[c.id] = c.current
+            if c.step(nb_steps):
+                current_flow_rate += c.current.flow_rate
+                c.current.opened = True
+
+        estimated = simulation2(characters, nodes, minutes - nb_steps, new_nodes_to_open, current_flow_rate)
+
+        if total + estimated > best_estimate:
+            best_estimate = total + estimated
 
         for c in characters:
-            c.backtrack()
+            if c.distance_to_dir == 0:
+                current_flow_rate -= c.current.flow_rate
+                c.current.opened = False
+                c.direction = c.current
+                c.current = current[c.id]
 
-        return res
+            c.backtrack(nb_steps)
 
-    indexes_to_check = [set(range(len(c))) for c in all_candidates]
+    # need to make sure that characters that was updated are back to 0
+    for c, _ in characters_to_update:
+        c.distance_to_dir = 0
 
-    all_is_done = False
-    new_flow_rate = current_flow_rate
-
-    while not all_is_done:
-        for c in characters:
-            found_candidate = None
-            for index in indexes_to_check:
-                candidate = all_candidates[c.id][index]
-                if not candidate.is_opening and not candidate.opened \
-                    and not any((other.direction == candidate for other in characters if other != c)):
-                    found_candidate = candidate
-                    indexes_to_check.remove(index)
-
-            if found_candidate is not None:
-                c.update_path(c.current.paths_to_others[found_candidate])
-
-            new_flow_rate += c.step()
-
-        estimate = current_flow_rate + simulation2(characters, nodes, minutes - 1, nodes_to_open, new_flow_rate)
-
-    for i in range(max_candidates):
-        for c in characters:
-            if i >= len(all_candidates[c.id]):
-                # Nothing to do
-                c.step()
-                continue
+    return best_estimate
 
 
 def solve(input: List[str], minutes: int):
@@ -350,6 +296,24 @@ def solve(input: List[str], minutes: int):
     res, best_candidates = simulation(start_node, nodes, minutes, nodes_to_open, 0)
     return res
 
+def solve2(input: List[str], minutes: int, nb_characters: int):
+    nodes = parse_input(input)
+
+    nodes_to_open = set([n for n in nodes if n.flow_rate > 0])
+
+    start_node = None
+    for n in nodes:
+        if n.name == "AA":
+            start_node = n
+            break
+
+    characters = [Character(i, start_node) for i in range(nb_characters)]
+
+    res = simulation2(characters, nodes, minutes, nodes_to_open, 0)
+    return res
+
 
 if __name__ == "__main__":
-    print(solve(entries, 30))
+    #print(solve(entries, 30))
+    #print(solve2(entries, 30, 1))
+    print(solve2(entries, 26, 2))
