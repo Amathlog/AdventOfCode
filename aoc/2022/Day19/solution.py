@@ -1,9 +1,7 @@
 from pathlib import Path
 import os
-import copy
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Any
 import re
-from collections import namedtuple
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
