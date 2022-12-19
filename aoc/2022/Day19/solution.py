@@ -80,29 +80,43 @@ class Blueprint:
         self.obsidian_robot_cost = obsidian_robot_cost
         self.geode_robot_cost = geode_robot_cost
 
+        # The max number of each resources ever needed.
+        # The number of robots cannot exceed this limit.
         self.max_ore = max((self.clay_robot_cost.ore, self.obsidian_robot_cost.ore, self.geode_robot_cost.ore))
-        self.max_clay = (self.obsidian_robot_cost.clay * 2) // 3 + 1
-        self.max_obsidian = (self.geode_robot_cost.obsidian * 2) // 3 + 1
+        self.max_clay = self.obsidian_robot_cost.clay
+        self.max_obsidian = self.geode_robot_cost.obsidian
 
-    def has_enough_ore(self, robot: "Resources") -> bool:
-        return robot.ore >= self.max_ore
+    # Prepare a cache with all possible minutes, to avoid computing the 
+    # multiplication at each steap
+    def set_max_minutes(self, minutes):
+        self.max_ore_cache = [m * self.max_ore for m in range(minutes+1)]
+        self.max_clay_cache = [m * self.max_clay for m in range(minutes+1)]
+        self.max_obsidian_cache = [m * self.max_obsidian for m in range(minutes+1)]
 
-    def has_enough_clay(self, robot: "Resources") -> bool:
-        return robot.clay >= self.max_clay
+    # We have enough resource if have as many robots as our max number of resources
+    # or we have enough resources to construct the machine that cost the most at every step
+    # for the remaining number of minutes
+    def has_enough_ore(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return robot.ore >= self.max_ore or res.ore >= self.max_ore_cache[minutes]
 
-    def has_enough_obsidian(self, robot: "Resources") -> bool:
-        return robot.obsidian >= self.max_obsidian
+    def has_enough_clay(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return robot.clay >= self.max_clay or res.clay >= self.max_clay_cache[minutes]
 
-    def can_construct_ore(self, robot: "Resources", res: "Resources") -> bool:
-        return not self.has_enough_ore(robot) and res.ore >= self.ore_robot_cost.ore
+    def has_enough_obsidian(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return robot.obsidian >= self.max_obsidian or res.obsidian >= self.max_obsidian_cache[minutes]
 
-    def can_construct_clay(self, robot: "Resources", res: "Resources") -> bool:
-        return not self.has_enough_clay(robot) and res.ore >= self.clay_robot_cost.ore
+    # We can construct the resource if we don't have enough of it, and we can pay its cost.
+    def can_construct_ore(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return not self.has_enough_ore(robot, res, minutes) and res.ore >= self.ore_robot_cost.ore
 
-    def can_construct_obsidian(self, robot: "Resources", res: "Resources") -> bool:
-        return not self.has_enough_obsidian(robot) and res.ore >= self.obsidian_robot_cost.ore and res.clay >= self.obsidian_robot_cost.clay
+    def can_construct_clay(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return not self.has_enough_clay(robot, res, minutes) and res.ore >= self.clay_robot_cost.ore
 
-    def can_construct_geode(self, robot: "Resources", res: "Resources") -> bool:
+    def can_construct_obsidian(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
+        return not self.has_enough_obsidian(robot, res, minutes) and res.ore >= self.obsidian_robot_cost.ore and res.clay >= self.obsidian_robot_cost.clay
+
+    # We cannot have enough of geode! We try to maximize it!
+    def can_construct_geode(self, robot: "Resources", res: "Resources", minutes: int) -> bool:
         return res.ore >= self.geode_robot_cost.ore and res.obsidian >= self.geode_robot_cost.obsidian
 
     @staticmethod
@@ -126,6 +140,7 @@ class Blueprint:
             f"Each geode robot costs {self.geode_robot_cost.ore} ore and {self.geode_robot_cost.obsidian} obsidian."
 
 
+# Cache for the robot factory
 new_robots = (
     Resources(geode=1),
     Resources(obsidian=1),
@@ -133,40 +148,26 @@ new_robots = (
     Resources(ore=1)
 )
 
-def simulation(blueprint: Blueprint, minutes: int, resources: Resources = None, robots: Resources = None, all_states = None, strategy: int = 0) -> Tuple[int, int, Any, Any]:
-    if resources is None:
-        resources = Resources()
-    if robots is None:
-        robots = Resources(ore=1)
-    if all_states is None:
-        all_states = {}
-    
-    if minutes == 1:
-        return robots.geode, 1, (False,) * 4, robots
+def simulation(blueprint: Blueprint, minutes: int) -> Tuple[int, int, Any]:
+    blueprint.set_max_minutes(minutes)
+    return simulation_impl(blueprint, minutes, Resources(), Resources(ore=1), (False,) * 4)
 
-    # count as cut branch
-    state = (minutes, resources, robots)
-    if state in all_states:
-        return all_states[state][0], 0, all_states[state][1], all_states[state][2]
+def simulation_impl(blueprint: Blueprint, minutes: int, resources: Resources = None, robots: Resources = None, ignored = None) -> Tuple[int, int, Any]:
+    # If we ignored all of them or arrive at the end, we can early out.
+    if all(ignored) or minutes == 1:
+        return robots.geode * minutes, 1, robots
 
     count = 0
 
     discard_doing_nothing = False
 
+    # If we decided to ignore one, don't try to construct it before constructing another one
     can_construct = (
-        blueprint.can_construct_geode(robots, resources),
-        blueprint.can_construct_obsidian(robots, resources),
-        blueprint.can_construct_clay(robots, resources),
-        blueprint.can_construct_ore(robots, resources),
+        ignored[0] or blueprint.can_construct_geode(robots, resources, minutes),
+        ignored[1] or blueprint.can_construct_obsidian(robots, resources, minutes),
+        ignored[2] or blueprint.can_construct_clay(robots, resources, minutes),
+        ignored[3] or blueprint.can_construct_ore(robots, resources, minutes),
     )
-
-    # Try to create all ore at the beginning
-    if strategy == 1:
-        if robots.ore < 2:
-            can_construct = (False, False, False, can_construct[3])
-        if can_construct[0] and can_construct[1]:
-            can_construct = (True, True, False, False)
-            discard_doing_nothing = True
 
     costs = (
         blueprint.geode_robot_cost,
@@ -180,10 +181,10 @@ def simulation(blueprint: Blueprint, minutes: int, resources: Resources = None, 
 
     # Try to make robots in priority order
     new_resources = resources + robots
-    for i, (can_construct_robot, cost, new_robot) in enumerate(zip(can_construct, costs, new_robots)):
-        if can_construct_robot:
+    for i, (can_construct_robot, cost, new_robot, was_ignored) in enumerate(zip(can_construct, costs, new_robots, ignored)):
+        if can_construct_robot and not was_ignored:
             final_resources = new_resources - cost
-            res, incr, next_can_construct, final_robots = simulation(blueprint, minutes-1, final_resources, robots + new_robot, all_states, strategy)
+            res, incr, final_robots = simulation_impl(blueprint, minutes-1, final_resources, robots + new_robot, (False,) * 4)
             count += incr
             if res > best:
                 best = res
@@ -192,35 +193,16 @@ def simulation(blueprint: Blueprint, minutes: int, resources: Resources = None, 
             # If I can construct a geode, no need to check others
             if i == 0:
                 discard_doing_nothing = True
-                break
-
-            can_construct_when_doing_nothing = (
-                False, # Don't care
-                blueprint.can_construct_obsidian(robots, new_resources),
-                blueprint.can_construct_clay(robots, new_resources),
-                blueprint.can_construct_ore(robots, new_resources)
-            )
-
-            blocked_construction = True
-            for j in range(1, len(can_construct_when_doing_nothing)):
-                if j != i and can_construct_when_doing_nothing[j] and not next_can_construct[j]:
-                    blocked_construction = True
-
-            if not blocked_construction:
-                discard_doing_nothing = True
-            elif (i == 2 and robots.clay == 0) or (i == 1 and robots.obsidian == 0):
-                discard_doing_nothing = True
 
     if not discard_doing_nothing:
-        res, incr, _, final_robots = simulation(blueprint, minutes-1, new_resources, robots, all_states, strategy)
+        res, incr, final_robots = simulation_impl(blueprint, minutes-1, new_resources, robots, can_construct)
         count += incr
         if res > best:
             best = res
             best_robots = final_robots
 
     res = robots.geode + best
-    all_states[state] = (res, can_construct, best_robots)
-    return res, count, can_construct, best_robots
+    return res, count, best_robots
 
 
 def solve(entries: List[str]):
@@ -229,7 +211,7 @@ def solve(entries: List[str]):
     res = 0
 
     for bp in blueprints:
-        nb_geodes, branches, _, robots = simulation(bp, 24)
+        nb_geodes, branches, robots = simulation(bp, 24)
         print(f"Blueprint {bp.id} has gather {nb_geodes} for a quality level of {bp.id * nb_geodes} with {branches} branches. Final robots: {robots}")
         res += bp.id * nb_geodes
 
@@ -241,7 +223,7 @@ def solve2(entries: List[str]):
     res = 1
 
     for bp in blueprints:
-        nb_geodes, branches, _, robots = simulation(bp, 32, None, None, None, 1)
+        nb_geodes, branches, robots = simulation(bp, 32)
         print(f"Blueprint {bp.id} has gather {nb_geodes} with {branches} branches. Final robots: {robots}")
         res *= nb_geodes
 
@@ -249,4 +231,4 @@ def solve2(entries: List[str]):
 
 if __name__ == "__main__":
     solve(entries)
-    #solve2(example_entries)
+    solve2(entries)
