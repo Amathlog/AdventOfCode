@@ -4,6 +4,7 @@ import copy
 from typing import List, Tuple, Dict, Optional, Callable
 from enum import Enum
 import re
+import sys
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
@@ -58,19 +59,6 @@ def get_incr(dir: Direction) -> "Point":
 def get_opposite_direction(pos: "Point") -> Direction:
     return get_direction(pos * -1)
 
-
-def transform(pos: "Point", initial_dir: Direction, initial_origin: "Point", new_dir: Direction, new_origin: "Point", zone_size: int) -> "Point":
-    transform_number = (initial_dir.value - new_dir.value) % 4
-    if transform_number == 2:
-        # Nothing to do
-        return pos
-    if transform_number == 0:
-        return Point(new_origin.x - (pos.x - initial_origin.x), new_origin.y)
-    if transform_number == 1: # Turned left
-        return Point()
-    if transform_number == 3: # Turned right
-        return Point()
-
 class Point:
     def __init__(self, x: int, y: int):
         self.x = x
@@ -95,13 +83,16 @@ class Point:
     def __eq__(self, other: "Point") -> bool:
         return self.x == other.x and self.y == other.y
 
+    def __hash__(self) -> int:
+        return hash((self.x, self.y))
+
 
 class Tile:
     def __init__(self, pos: Point, _type: Type, zone_size: int):
         self.set_type(_type)
         self.pos = pos
         # Follow "Direction" enum index order
-        self.teleport_coordinates: List[Point] = [None] * 4
+        self.teleport_coordinates: List[Tuple[Point, Direction]] = [None] * 4
         self.visited: bool = False
         self.visited_twice: bool = False
         self.current_zone = None
@@ -117,6 +108,9 @@ class Tile:
         self.visited = False
         self.visited_twice = False
         self.distance_to_teleport = [None] * 4 if self.type != Type.Teleport else [0] * 4
+        self.distance_to_wall = [None] * 4
+        if self.type == Type.Teleport:
+            self.teleport_coordinates = [None] * 4
 
     def update_teleport_part1(self, grid: "Grid"):
         # Find all Empty around
@@ -139,7 +133,7 @@ class Tile:
             if previous_was_wall:
                 self.distance_to_wall[initial_dir.value] = 0
             else:
-                self.teleport_coordinates[initial_dir.value] = curr.pos - neighbor
+                self.teleport_coordinates[initial_dir.value] = (curr.pos - neighbor, initial_dir)
 
     def get_current_zone(self, grid: "Grid"):
         if self.current_zone is None:
@@ -160,7 +154,16 @@ class Tile:
         for neighbor in valid_neighbors:
             curr = grid[self.pos + neighbor]
             curr_zone = curr.get_current_zone(grid)
+            curr_dir = get_opposite_direction(neighbor)
+            next_zone, next_dir = grid.zone_mapping[curr_zone - 1][curr_dir.value]
 
+            assert curr_zone != next_zone
+            
+            next_pos = grid.transform(curr.pos, curr_dir, curr_zone, next_dir, next_zone)
+            next_tile = grid[next_pos]
+            self.teleport_coordinates[curr_dir.value] = (next_tile.pos, get_opposite_direction(get_incr(next_dir)))
+            if next_tile.type == Type.Wall:
+                self.distance_to_wall[curr_dir.value] = 0
                 
     def update_cache(self, grid: "Grid", second_time: bool = False, folded: bool = False):
         if self.visited and (not second_time or self.visited_twice):
@@ -171,6 +174,7 @@ class Tile:
             self.visited_twice = True
 
         if self.type == Type.Wall:
+            self.distance_to_wall = [0] * 4
             return
 
         elif self.type == Type.Teleport and not second_time:
@@ -196,7 +200,7 @@ class Grid:
         self.grid = [[Tile(Point(i,j), Type.Void, self.zone_size) for i in range(self.width)] for j in range(self.height)]
         self.topleft_pos = None
         self.zones: Dict[Tuple[int, int], int] = zones
-        self.zone_mapping: List[List[Callable, Direction]] = zone_mapping
+        self.zone_mapping: List[List[Tuple[int, Direction]]] = zone_mapping
 
     def __getitem__(self, pos: Point) -> Tile:
         assert pos.x >= 0 and pos.x < self.width and pos.y >= 0 and pos.y < self.height
@@ -216,27 +220,92 @@ class Grid:
                 continue
             yield incr
 
-    def update_cache(self, folded: bool = False):
+    def validation(self):
         for j in range(self.height):
             for i in range(self.width):
                 tile = self.grid[j][i]
-                tile.update_cache(self, folded)
-
-        for j in reversed(range(self.height)):
-            for i in reversed(range(self.width)):
-                tile = self.grid[j][i]
-                tile.update_cache(self, second_time=True, folded=folded)
                 if tile.type == Type.Empty:
                     # Validate that all directions are valid
                     for dir in range(4):
                         assert tile.distance_to_wall[dir] is not None or tile.distance_to_teleport[dir] is not None
                         assert tile.distance_to_wall[dir] is None or tile.distance_to_wall[dir] >= 0
                         assert tile.distance_to_teleport[dir] is None or tile.distance_to_teleport[dir] >= 0
+                
+                elif tile.type == Type.Teleport:
+                    for dir in range(len(tile.teleport_coordinates)):
+                        if tile.teleport_coordinates[dir] is None:
+                            continue
+
+                        curr_dir = Direction(dir)
+                        curr_pos = tile.pos + get_incr(curr_dir) * -1
+                        curr_tile = self[curr_pos]
+                        assert curr_tile.type == Type.Empty
+
+                        new_pos, new_dir = tile.teleport_coordinates[dir]
+                        new_tile = self[new_pos]
+                        assert new_pos != curr_pos
+                        opposite_new_dir = get_opposite_direction(get_incr(new_dir))
+                        other_teleport = self[new_pos + get_incr(opposite_new_dir)]
+                        assert other_teleport.type == Type.Teleport
+
+                        if new_tile.type == Type.Wall:
+                            assert other_teleport.teleport_coordinates[opposite_new_dir.value] is None
+                            assert tile.distance_to_wall[dir] == 0
+                        else:
+                            other_pos, other_dir = other_teleport.teleport_coordinates[opposite_new_dir.value]
+                            assert curr_pos == other_pos
+                            assert abs(other_dir.value - curr_dir.value) == 2
+
+    def update_cache(self, folded: bool = False):
+        for j in range(self.height):
+            for i in range(self.width):
+                tile = self.grid[j][i]
+                tile.update_cache(self, folded=folded)
+
+        for j in reversed(range(self.height)):
+            for i in reversed(range(self.width)):
+                tile = self.grid[j][i]
+                tile.update_cache(self, second_time=True, folded=folded)
+
+        self.validation()
 
     def clear_teleport_cache(self):
         for j in range(self.height):
             for i in range(self.width):
                 self.grid[j][i].clear_teleport_cache()
+
+    def get_origin_and_vec_dir(self, zone: int, dir: Direction):
+        for (column_id, row_id), tentative_zone in self.zones.items():
+            if tentative_zone == zone:
+                break
+
+        origin = Point(column_id * self.zone_size, row_id * self.zone_size)
+        if dir == Direction.Left:
+            vec_dir = Point(0, 1)
+        elif dir == Direction.Up:
+            vec_dir = Point(1, 0)
+        elif dir == Direction.Right:
+            origin += Point(self.zone_size - 1, self.zone_size - 1)
+            vec_dir = Point(0, -1)
+        else:
+            origin += Point(self.zone_size - 1, self.zone_size - 1)
+            vec_dir = Point(-1, 0)
+
+        return origin, vec_dir
+
+    def transform(self, pos: "Point", initial_dir: Direction, initial_zone: int, new_dir: Direction, new_zone: int) -> "Point":
+        transform_number = (initial_dir.value - new_dir.value) % 4
+        translated_pos = Point(pos.x - 1, pos.y - 1)
+
+        initial_origin, _ = self.get_origin_and_vec_dir(initial_zone, initial_dir)
+        alpha = translated_pos.distance(initial_origin)
+        new_origin, new_vec_dir = self.get_origin_and_vec_dir(new_zone, new_dir)
+
+        if transform_number == 0 or transform_number == 2:
+            alpha = self.zone_size - alpha - 1
+       
+        new_translated_pos = new_origin + new_vec_dir * alpha
+        return Point(new_translated_pos.x + 1, new_translated_pos.y + 1)
 
     @staticmethod
     def from_input(input: List[str], zones, zone_mapping) -> "Grid":
@@ -277,16 +346,34 @@ class Grid:
         grid.update_cache()
         return grid
 
-    def to_string(self, character_pos: Point, show_teleports: bool = False, distance_wall_dir: Direction = None, distance_teleport_dir: Direction = None, current_zone: bool = False) -> str:
+    def to_string(self, character_pos: Point, show_teleports: bool = False, distance_wall_dir: Direction = None, distance_teleport_dir: Direction = None, current_zone: bool = False, visited_positions = None) -> str:
         res = ""
         height_range = list(range(self.height) if show_teleports else range(1, self.height-1))
         width_range = list(range(self.width) if show_teleports else range(1, self.width-1))
+
         for j in height_range:
             for i in width_range:
                 pos = Point(i, j)
                 if pos == character_pos:
-                    res += "C"
+                    res += "\x1b[1;37mC"
                     continue
+
+                if visited_positions is not None and pos in visited_positions:
+                    dir, id = visited_positions[pos]
+                    color = id % 255
+                    res += f"\x1b[38;5;{color}m"
+
+                    if dir == Direction.Left:
+                        res += "<"
+                    elif dir == Direction.Right:
+                        res += ">"
+                    elif dir == Direction.Up:
+                        res += "^"
+                    else:
+                        res += "v"
+                    continue
+
+                res += "\x1b[0;37m"
 
                 tile = self[pos]
                 if tile.type == Type.Void:
@@ -308,27 +395,64 @@ class Grid:
             res += "\n"
         return res
 
+    def debug_teleport(self, zone: int) -> str:
+        res = ""
+
+        all_teleport_positions = {}
+        id = 0
+
+        for j in range(self.height):
+            for i in range(self.width):
+                pos = Point(i, j)
+                tile = self[pos]
+                if tile.type != Type.Empty:
+                    continue
+
+                if zone != tile.get_current_zone(self):
+                    continue
+
+                for dir in range(4):
+                    if tile.distance_to_teleport[dir] != 0 and tile.distance_to_wall[dir] is None:
+                        teleport_pos = pos + get_incr(Direction(dir)) * tile.distance_to_teleport[dir]
+                        teleport_tile = self[teleport_pos]
+                        assert teleport_tile.type == Type.Teleport
+                        if teleport_pos in all_teleport_positions:
+                            continue
+
+                        all_teleport_positions[teleport_pos] = (Direction(dir), id)
+                        new_pos, new_dir = teleport_tile.teleport_coordinates[dir]
+                        all_teleport_positions[new_pos] = (new_dir, id)
+                        id += 1
+        
+        return self.to_string(Point(0,0), show_teleports=True, visited_positions=all_teleport_positions)
+
     def __repr__(self) -> str:
         return self.to_string()
 
-    def navigate(self, origin: Point, dir: Direction, dist: int) -> Point:
+    def navigate(self, origin: Point, dir: Direction, dist: int, id: int) -> Tuple[Point, Direction]:
         curr_tile = self[origin]
         incr = get_incr(dir)
         # If there is a wall, move towards it
         if curr_tile.distance_to_wall[dir.value] is not None:
-            return origin + (incr * min(dist, curr_tile.distance_to_wall[dir.value] - 1))
+            dist = min(dist, curr_tile.distance_to_wall[dir.value] - 1)
+            all_positions = {origin + incr * i: (dir, id) for i in range(dist)}
+            return origin + incr * dist, dir, all_positions 
 
         # If there is no wall, there is a teleport
         # If we don't reach it, just move towards it and exit
         dist_teleport = curr_tile.distance_to_teleport[dir.value]
         if dist_teleport > dist:
-            return origin + incr * dist
+            all_positions = {origin + incr * i: (dir, id) for i in range(dist)}
+            return origin + incr * dist, dir, all_positions
 
         # Otherwise, teleport and do it again with new dist
         teleport_pos = origin + incr * dist_teleport
         teleport_tile = self[teleport_pos]
-        new_pos = teleport_tile.teleport_coordinates[dir.value]
-        return self.navigate(new_pos, dir, dist - dist_teleport)
+        assert teleport_tile.type == Type.Teleport
+        new_pos, new_dir = teleport_tile.teleport_coordinates[dir.value]
+        final_pos, final_dir, all_positions = self.navigate(new_pos, new_dir, dist - dist_teleport, id)
+        all_positions.update({origin + incr * i: (dir, id) for i in range(dist_teleport)})
+        return final_pos, final_dir, all_positions
 
 def solve(entries: List[str], zones, zone_mapping):
     input_grid = entries[:-2]
@@ -338,26 +462,38 @@ def solve(entries: List[str], zones, zone_mapping):
     all_insts = re.findall(pattern, instructions)
 
     grid = Grid.from_input(input_grid, zones, zone_mapping)
-    print(grid.to_string(Point(0,0), current_zone=True))
+    #print(grid.to_string(Point(0,0), current_zone=True))
+
 
     for i in range(2):
+        all_visited_positions = {}
         curr_pos = grid.topleft_pos
         curr_dir = Direction.Right
 
+        id = 0
         for dir, dist in all_insts:
             if dir == "R":
                 curr_dir = Direction((curr_dir.value + 1) % 4)
             elif dir == "L":
                 curr_dir = Direction((curr_dir.value - 1) % 4)
 
-            curr_pos = grid.navigate(curr_pos, curr_dir, int(dist))
+            curr_pos, curr_dir, visited_positions = grid.navigate(curr_pos, curr_dir, int(dist), id)
+            all_visited_positions.update(visited_positions)
+            assert grid[curr_pos].type == Type.Empty
+            id += 1
+
+            #print(f"{dir}: {dist}")
+        # print(grid.to_string(curr_pos, visited_positions=all_visited_positions))
         
         password = curr_pos.y * 1000 + curr_pos.x * 4 + (curr_dir.value + 2) % 4
         print(f"Part {i+1}: Password = {password}")
 
         if i == 0:
             grid.clear_teleport_cache()
-            grid.update_cache(folded=False)
+            grid.update_cache(folded=True)
+            # for i in range(1, 7):
+            #     print(f"Teleport for zone {i}")
+            #     print(grid.debug_teleport(i))
 
 example_zones = {
     (2, 0): 1,
@@ -379,24 +515,81 @@ entry_zones = {
 
 example_mapping = [
     # 1 -> 3, 2, 6, 4
-    [(lambda pos: Point(4 + pos.y, 4), Direction.Down),
-    (lambda pos: Point(12 - pos.x, 4), Direction.Down),
-    (lambda pos: Point(16, pos.y + 8), Direction.Left),
-    None
-    ],
+    [(3, Direction.Up),
+    (2, Direction.Up),
+    (6, Direction.Right),
+    None],
     # 2 -> 6, 1, 3, 5
-    [],
+    [(6, Direction.Down),
+    (1, Direction.Up),
+    None,
+    (5, Direction.Down)],
     # 3 -> 2, 1, 4, 5
-    [],
+    [None,
+    (1, Direction.Left),
+    None,
+    (5, Direction.Left)],
     # 4 -> 3, 1, 6, 5
-    [],
+    [None,
+    None,
+    (6, Direction.Up),
+    None],
     # 5 -> 3, 4, 6, 2
-    [],
+    [(3, Direction.Down),
+    None,
+    None,
+    (2, Direction.Down)],
     # 6 -> 5, 4, 1, 2
-    []
+    [None,
+    (4, Direction.Right),
+    (1, Direction.Right),
+    (2, Direction.Left)]
 ]
 
-entry_mapping = []
+entry_mapping = [
+    # 1 -> 5, 6, 2, 3
+    [
+        (5, Direction.Left),
+        (6, Direction.Left),
+        None,
+        None
+    ],
+    # 2 -> 1, 6, 4, 3
+    [
+        None,
+        (6, Direction.Down),
+        (4, Direction.Right),
+        (3, Direction.Right),
+    ],
+    # 3 -> 5, 1, 2, 4
+    [
+        (5, Direction.Up),
+        None,
+        (2, Direction.Down),
+        None
+    ],
+    # 4 -> 5, 3, 2, 6
+    [
+        None,
+        None,
+        (2, Direction.Right),
+        (6, Direction.Right)
+    ],
+    # 5 -> 1, 3, 4, 6
+    [
+        (1, Direction.Left),
+        (3, Direction.Left),
+        None,
+        None
+    ],
+    # 6 -> 1, 5, 4, 2
+    [
+        (1, Direction.Up),
+        None,
+        (4, Direction.Down),
+        (2, Direction.Up)
+    ]
+]
 
 if __name__ == "__main__":
     print("For example:")
