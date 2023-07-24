@@ -1,7 +1,8 @@
 #include <common/test_case.h>
 #include <gtest/gtest.h>
 
-#include "2015/Day01/entry.h"
+#include "parser.h"
+#include "path_utils.h"
 
 namespace Year2015
 {
@@ -91,7 +92,8 @@ TEST(Year2015, Day01_Example)
 
 TEST(Year2015, Day01_Entry)
 {
-    AOCResult result(Year2015::Day01::entry, "232", "1783");
+    std::string entry = AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day01" / "entry.txt");
+    AOCResult result(std::move(entry), "232", "1783");
     Year2015::Day01::Solution solution;
     ASSERT_TRUE(solution.SolvePartOne(result, false));
     ASSERT_TRUE(solution.SolvePartTwo(result, false));
