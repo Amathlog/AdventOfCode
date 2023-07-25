@@ -8,6 +8,9 @@ template = R"""
 
 #include <parser.h>
 #include <path_utils.h>
+#include <iostream>
+
+constexpr bool s_verbose = false;
 
 namespace Year{0}
 {
@@ -39,8 +42,19 @@ TEST(Year{0}, Day{1}_Example)
     AOCResult result(std::move(entry), "", "");
 
     Year{0}::Day{1}::Solution solution;
-    //ASSERT_TRUE(solution.SolvePartOne(result, false));
-    //ASSERT_TRUE(solution.SolvePartTwo(result, false));
+    if (s_verbose)
+    {
+        std::cout << "Part 1:" << std::endl;
+    }
+
+    //ASSERT_TRUE(solution.SolvePartOne(result, s_verbose));
+
+    if (s_verbose)
+    {
+        std::cout << "Part 2:" << std::endl;
+    }
+
+    //ASSERT_TRUE(solution.SolvePartTwo(result, s_verbose));
 }
 
 TEST(Year{0}, Day{1}_Entry)
@@ -49,8 +63,19 @@ TEST(Year{0}, Day{1}_Entry)
     AOCResult result(std::move(entry), "", "");
 
     Year{0}::Day{1}::Solution solution;
-    //ASSERT_TRUE(solution.SolvePartOne(result, false));
-    //ASSERT_TRUE(solution.SolvePartTwo(result, false));
+    if (s_verbose)
+    {
+        std::cout << "Part 1:" << std::endl;
+    }
+
+    //ASSERT_TRUE(solution.SolvePartOne(result, s_verbose));
+
+    if (s_verbose)
+    {
+        std::cout << "Part 2:" << std::endl;
+    }
+
+    //ASSERT_TRUE(solution.SolvePartTwo(result, s_verbose));
 }
 """
 
@@ -68,7 +93,7 @@ def generate_files(year: int, day: int):
     example_file = folder / "example.txt"
     example_file.touch(exist_ok=True)
 
-    solution_file = folder / "solution.cpp"
+    solution_file = folder / f"solution_{year_str}_{day_str}.cpp"
     content = template.replace("{0}", year_str).replace("{1}", day_str)
     with solution_file.open("w") as f:
         f.write(content)
