@@ -7,19 +7,10 @@ template = """from pathlib import Path
 import os
 import copy
 from typing import List, Tuple, Dict
+from aoc.common.parse_entry import parse_entry
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
-
-def parse_entry(path: str) -> List[str]:
-    with path.open("r") as f:
-        entries = f.readlines()
-
-    for i in range(len(entries)):
-        if entries[i][-1] == '\\n':
-            entries[i] = entries[i][:-1]
-
-    return entries
 
 entries = parse_entry(entry_file)
 example_entries = parse_entry(example_file)

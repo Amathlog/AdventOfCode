@@ -4,7 +4,6 @@ import copy
 from typing import List, Tuple, Dict, Optional, Callable
 from enum import Enum
 import re
-import sys
 
 entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
 example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
