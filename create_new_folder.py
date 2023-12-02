@@ -7,13 +7,9 @@ template = """from pathlib import Path
 import os
 import copy
 from typing import List, Tuple, Dict
-from aoc.common.parse_entry import parse_entry
+from aoc.common.parse_entry import parse_all
 
-entry_file = Path(os.path.abspath(__file__)).parent / "entry.txt"
-example_file = Path(os.path.abspath(__file__)).parent / "example.txt"
-
-entries = parse_entry(entry_file)
-example_entries = parse_entry(example_file)
+entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 """
 
 folder = Path(os.path.abspath(__file__)).parent / "aoc"
