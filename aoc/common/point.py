@@ -1,3 +1,4 @@
+import math
 
 class Point:
     def __init__(self, x: int = 0, y: int = 0, z: int = 0):
@@ -37,6 +38,18 @@ class Point:
     
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.z))
+    
+    def manathan_distance(self, other: "Point"):
+        return abs(self.x - other.x) + abs(self.y - other.y) + abs(self.z - other.z)
+    
+    def squared_distance(self, other: "Point"):
+        return (self.x - other.x) ** 2 + (self.y - other.y) ** 2 + (self.z - other.z) ** 2
+
+    def distance(self, other: "Point"):
+        return math.sqrt(self.squared_distance(other))
+    
+    def distance_inf(self, other: "Point"):
+        return max(abs(self.x - other.x), abs(self.y - other.y), abs(self.z - other.z))
     
 # return the intersection point, if it exists only a single one, and if it is on segment ab and if it is on segment cd
 def intersect2D(a: Point, b: Point, c: Point, d: Point) -> bool:
