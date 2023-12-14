@@ -1,9 +1,6 @@
-from pathlib import Path
-import os
-import copy
 from typing import List, Tuple, Dict, Optional
 from aoc.common.parse_entry import parse_all
-import math
+from aoc.common.utils import profile
 
 entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 
@@ -44,7 +41,7 @@ def summarize(note: List[int]) -> Tuple[Optional[int], Optional[int]]:
     
     return perfect_fold, almost_perfect_fold
 
-
+@profile
 def part_one_and_two(entry: List[str]) -> int:
     perfect_fold = 0
     almost_perfect_fold = 0
@@ -78,4 +75,3 @@ def part_one_and_two(entry: List[str]) -> int:
 if __name__ == "__main__":
     print("Part 1 and 2 example:", part_one_and_two(example_entries))
     print("Part 1 and 2 entry:", part_one_and_two(entries))
-
