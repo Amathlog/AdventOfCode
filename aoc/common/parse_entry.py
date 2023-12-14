@@ -8,8 +8,7 @@ def parse_entry(path: str) -> List[str]:
         entries = f.readlines()
 
     for i in range(len(entries)):
-        if entries[i][-1] == '\n':
-            entries[i] = entries[i][:-1]
+        entries[i] = entries[i].strip()
 
     return entries
 
