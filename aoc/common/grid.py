@@ -21,3 +21,9 @@ class Grid:
     
     def __repr__(self) -> str:
         return str(self.grid)
+    
+    def __eq__(self, other: "Grid") -> bool:
+        return self.grid == other.grid
+    
+    def __hash__(self) -> int:
+        return hash(tuple([tuple(x) for x in self.grid]))

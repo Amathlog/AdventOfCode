@@ -51,7 +51,8 @@ class Map(Grid):
 
                     for x in range(start, end):
                         idx = x - start
-                        if (dir == Direction.North and idx < nb_rocks) or (dir == Direction.South and idx >= nb_rocks):
+                        other_idx = end - x - 1
+                        if (dir == Direction.North and idx < nb_rocks) or (dir == Direction.South and other_idx < nb_rocks):
                             self.grid[x][y] = "O"
                         else:
                             self.grid[x][y] = "."
@@ -66,7 +67,8 @@ class Map(Grid):
 
                     for y in range(start, end):
                         idx = y - start
-                        if (dir == Direction.West and idx < nb_rocks) or (dir == Direction.East and idx >= nb_rocks):
+                        other_idx = end - y - 1
+                        if (dir == Direction.West and idx < nb_rocks) or (dir == Direction.East and other_idx < nb_rocks):
                             self.grid[x][y] = "O"
                         else:
                             self.grid[x][y] = "."
@@ -88,19 +90,38 @@ class Map(Grid):
 def part_one(entry: List[str]) -> int:
     entry = [[c for c in e] for e in entry]
     my_map = Map(entry)
-    print(my_map)
     my_map.roll(Direction.North)
-    print(my_map)
     return my_map.load()
 
 @profile
 def part_two(entry: List[str]) -> int:
-    return 0
+    entry = [[c for c in e] for e in entry]
+    my_map = Map(entry)
+    all_maps = {}
+    i = 0
+    while True:
+        for dir in [Direction.North, Direction.West, Direction.South, Direction.East]:
+            my_map.roll(dir)
+
+        if my_map in all_maps:
+            break
+
+        all_maps[copy.deepcopy(my_map)] = i
+        i += 1
+
+    cycle = i - all_maps[my_map]
+    remaining = (1000000000 - i - 1) % cycle
+
+    for _ in range(remaining):
+        for dir in [Direction.North, Direction.West, Direction.South, Direction.East]:
+            my_map.roll(dir)
+
+    return my_map.load()
 
 
 if __name__ == "__main__":
     print("Part 1 example:", part_one(example_entries))
-    #print("Part 1 entry:", part_one(entries))
+    print("Part 1 entry:", part_one(entries))
 
     print("Part 2 example:", part_two(example_entries))
     print("Part 2 entry:", part_two(entries))

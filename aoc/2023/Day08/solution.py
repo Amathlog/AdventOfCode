@@ -104,4 +104,3 @@ if __name__ == "__main__":
 
     print("Part 2 example:", part_two(example2_entries))
     print("Part 2 entry:", part_two(entries))
-
