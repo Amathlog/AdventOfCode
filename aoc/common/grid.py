@@ -7,17 +7,23 @@ class Grid:
         self.max_x = len(self.grid)
         self.max_y = len(self.grid[0] if len(self.grid) > 0 else 0)
 
-    def is_valid_xy(self, x: int, y: int):
+    def is_valid_xy(self, x: int, y: int) -> bool:
         return x >= 0 and y >= 0 and x < self.max_x and y < self.max_y
 
-    def is_valid(self, p: Point):
+    def is_valid(self, p: Point) -> bool:
         return self.is_valid_xy(p.x, p.y)
     
-    def get(self, x: int, y: int):
+    def get(self, x: int, y: int) -> Any:
         return self.grid[x][y]
     
-    def __getitem__(self, p: Point):
+    def set(self, x: int, y: int, v: Any) -> None:
+        self.grid[x][y] = v
+    
+    def __getitem__(self, p: Point) -> Any:
         return self.get(p.x, p.y)
+    
+    def __setitem__(self, p: Point, v: Any) -> None:
+        self.set(p.x, p.y, v)
     
     def __repr__(self) -> str:
         return str(self.grid)
