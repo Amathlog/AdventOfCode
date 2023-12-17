@@ -10,6 +10,7 @@ from aoc.common.astar import AStar_Solver
 
 entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 
+
 class State:
     min_straight = 0
     max_straight = 3
@@ -50,7 +51,8 @@ class State:
     
     def __repr__(self) -> str:
         return str((self.pos, self.dir, self.straight))
-    
+
+
 class ClumsyCrucible(AStar_Solver):
     def __init__(self, grid: List[str]):
         super().__init__()
@@ -78,61 +80,13 @@ class ClumsyCrucible(AStar_Solver):
     def solve(self) -> Any:
         res = self.solve_internal()
         return sum([self.grid[s.pos] for s in res[1:]])
-    
-# class StatePriority:
-#     def __init__(self, state: State, priority: int):
-#         self.state = state
-#         self.priority = priority
-
-#     def __lt__(self, other: "StatePriority") -> bool:
-#         return self.priority < other.priority
-
-
-# class Graph(Grid):
-#     def __init__(self, grid: List[str]):
-#         super().__init__()
-
-#     def solve(self, start: Point, end: Point) -> List[Point]:
-#         def heuristic(p: Point) -> int:
-#             return p.manathan_distance(end)
-        
-#         states = PriorityQueue()
-#         start_state1 = State(start, Direction.East, 0)
-#         start_state2 = State(start, Direction.South, 0)
-#         states.put(StatePriority(start_state1, heuristic(start)))
-#         states.put(StatePriority(start_state2, heuristic(start)))
-
-#         came_from: Dict[Point, Point] = {}
-#         g_score: Dict[State, int] = {start_state1: 0, start_state2: 0}
-
-#         def reconstruct_path(state):
-#             res = []
-#             curr = state
-#             while curr.pos != start:
-#                 res.append(curr.pos)
-#                 curr = came_from[curr]
-#             return [start] + res[::-1]
-
-#         while states.qsize() > 0:
-#             state = states.get().state
-#             if state.pos == end:
-#                 return reconstruct_path(state)
-            
-#             for s in state.get_next_states(self):
-#                 tentative_gscore = g_score[state] + self[s.pos]
-#                 if s not in g_score or tentative_gscore < g_score[s]:
-#                     came_from[s] = state
-#                     g_score[s] = tentative_gscore
-#                     states.put(StatePriority(s, tentative_gscore + heuristic(s.pos)))
-
-#         # Failed
-#         return []
 
 
 @profile
 def part_one(entry: List[str]) -> int:
     graph = ClumsyCrucible(entry)
     return graph.solve()
+
 
 @profile
 def part_two(entry: List[str]) -> int:
