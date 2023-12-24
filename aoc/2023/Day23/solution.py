@@ -2,163 +2,206 @@ import copy
 from typing import Any, List, Tuple, Dict, Optional, Set
 from aoc.common.parse_entry import parse_all
 from aoc.common.utils import profile
-from aoc.common.astar import AStar_Solver
 from aoc.common.grid import Grid
 from aoc.common.point import Point
 from aoc.common.direction import *
-import math
 
 entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 
 class Tile:
-    index = 0
     def __init__(self, c: str, slip: bool) -> None:
         self.walkable = c != "#"
         self.direction = None
         if self.walkable:
-            self.index = Tile.index
-            Tile.index += 1
             if slip:
                 if c == ">":
                     self.direction = Direction.East
-                elif c == "<":
-                    self.direction = Direction.West
-                elif c == "^":
-                    self.direction = Direction.North
                 elif c == "v":
                     self.direction = Direction.South
 
 class Map(Grid):
     def __init__(self, grid: List[str], slip: bool) -> None:
-        Tile.index = 0
         super().__init__([[Tile(c, slip) for c in e] for e in grid])
-        self.walkable_num = Tile.index
 
-class BitField:
-    def __init__(self, size: int):
-        self.size = size
-        self.field = [0] * math.ceil(self.size / 64)
+class Node:
+    def __init__(self, index: int, pos: Point):
+        self.pos = pos
+        self.edges: List[Edge] = []
+        self.index = index
 
-    def set(self, bit: int):
-        assert(bit < self.size)
-        index = bit >> 6
-        bit_n = bit & 0x3f
-        self.field[index] |= (1 << bit_n)
+    def add_edge(self, edge: "Edge"):
+        assert(edge.start == self.pos or edge.end == self.pos)
+        if edge.one_way and edge.end == self.pos:
+            return
+        
+        self.edges.append(edge)
 
-    def reset(self, bit: int):
-        assert(bit < self.size)
-        index = bit >> 6
-        bit_n = bit & 0x3f
-        self.field[index] &= ~(1 << bit_n)
-
-    def is_set(self, bit: int):
-        assert(bit < self.size)
-        index = bit >> 6
-        bit_n = bit & 0x3f
-        return (self.field[index] & (1 << bit_n)) != 0
-
+    def __eq__(self, other) -> bool:
+        if type(other) == Point:
+            return self.pos == other
+        
+        return self.pos == other.pos
+    
     def __hash__(self) -> int:
-        res = 0
-        for word in self.field:
-            res ^= word
-        return res
+        return hash(self.pos)
+
+class Edge:
+    def __init__(self, index: int, start: Point, end: Point, cost: int, one_way: bool):
+        self.start = start
+        self.end = end
+        self.cost = cost
+        self.one_way = one_way
+        self.index = index
+
+    def get_next(self, pos: Point) -> Optional[Point]:
+        if pos == self.start:
+            return self.end
+        
+        if self.one_way:
+            return None
+        
+        return self.start
+        
+class Graph:
+    def __init__(self):
+        self.nodes: Dict[Point, Node] = {}
+        self.edges: List[Edge] = []
+        self.start_point = None
+        self.end_point = None
+
+    @staticmethod
+    def construct(entry: List[str], slip: bool) -> "Graph":
+        map = Map(entry, slip)
+        graph = Graph()
+        for i, tile in enumerate(map.grid[0]):
+            if tile.walkable:
+                graph.start_point = Point(0, i)
+
+        for i, tile in enumerate(map.grid[-1]):
+            if tile.walkable:
+                graph.end_point = Point(map.max_x - 1, i)
+
+        stack = [(graph.start_point, Direction.South)]
+        while len(stack) > 0:
+            curr, dir = stack.pop()
+            reverse_dir = turn_clockwise(dir, 180)
+            if curr not in graph.nodes:
+                graph.nodes[curr] = Node(len(graph.nodes), curr)
+
+            for next_dir in [Direction.East, Direction.West, Direction.North, Direction.South]:
+                # Can't go back
+                if next_dir == reverse_dir:
+                    continue
+
+                one_way = False
+                wrong_way = False
+
+                steps = 1
+
+                current_pos = advance(curr, next_dir)
+                if not map.is_valid(current_pos) or not map[current_pos].walkable:
+                    continue
+
+                while True:
+                    # Find next dir
+                    next_reverse_dir = turn_clockwise(next_dir, 180)
+                    tentative = [(advance(current_pos, d), d) for d in [Direction.East, Direction.West, Direction.North, Direction.South] if d != next_reverse_dir]
+                    tentative = [x for x in tentative if map.is_valid(x[0]) and map[x[0]].walkable]
+
+                    if len(tentative) == 1:
+                        current_pos = tentative[0][0]
+                        next_dir = tentative[0][1]
+
+                        if map[current_pos].direction is not None:
+                            assert(not one_way)
+                            one_way = True
+                            wrong_way = next_dir != map[current_pos].direction
+                        
+                        steps += 1
+                        continue
+                    
+                    # We reached an intersection or the end
+                    should_continue = False
+                    if current_pos not in graph.nodes:
+                        graph.nodes[current_pos] = Node(len(graph.nodes), current_pos)
+                        should_continue = True
+
+                    start_node = graph.nodes[current_pos] if wrong_way else graph.nodes[curr]
+                    end_node = graph.nodes[current_pos] if not wrong_way else graph.nodes[curr]
+
+                    # check if the edge already exist
+                    edge_exist = False
+                    for edge in graph.edges:
+                        if (edge.start == current_pos and edge.end == curr) or (edge.start == curr and edge.end == current_pos):
+                            edge_exist = True
+                            break
+
+                    if edge_exist:
+                        break
+
+                    graph.edges.append(Edge(len(graph.edges), start_node.pos, end_node.pos, steps, one_way))
+
+                    start_node.add_edge(graph.edges[-1])
+                    if not one_way:
+                        end_node.add_edge(graph.edges[-1])
+
+                    if should_continue:
+                        stack.extend([(current_pos, x[1]) for x in tentative])
+                    break
+
+        return graph
     
-    def __eq__(self, other: "BitField") -> bool:
-        return self.field == other.field
+    def find_max_length(self):
+        seen_edges = [False] * len(self.edges)
+        seen_nodes = [False] * len(self.nodes)
+        self.current_max_length = 0
 
-def get_next_states(pos: Point, direction: Direction, graph: Map) -> List[Point]:
-    tile = graph[pos]
-    reverse_dir = turn_clockwise(direction, 180)
-    assert(tile.walkable)
-    if tile.direction is not None:
-        if tile.direction == reverse_dir:
-            return []
-        else:
-            return [(advance(pos, tile.direction), tile.direction)]
-
-    res = []
-    for dir in [Direction.East, Direction.West, Direction.North, Direction.South]:
-        # Can't go back
-        if dir == reverse_dir:
-            continue
-
-        new_pos = advance(pos, dir)
-        if not graph.is_valid(new_pos) or not graph[new_pos].walkable:
-            continue
+        return self.__find_max_length_internal(self.start_point, 0, seen_edges, seen_nodes)
     
-        res.append((new_pos, dir))
-    return res
+    def __find_max_length_internal(self, curr: Point, curr_length, seen_edges, seen_nodes) -> int:
+        if curr == self.end_point:
+            if curr_length > self.current_max_length:
+                self.current_max_length = curr_length
+                print(self.current_max_length)
+            return curr_length
+        
+        curr_node = self.nodes[curr]
+        if seen_nodes[curr_node.index]:
+            return None
+        
+        seen_nodes[curr_node.index] = True
 
-def backtrack(start_pos: Point, end_pos: Point, graph: Map) -> List[Point]:
-    already_seen = {}
-    current_bitfield = BitField(graph.walkable_num)
+        max_length = None
 
-    return backtrack_internal(start_pos, Direction.South, end_pos, graph, 0, already_seen, current_bitfield)
+        for edge in self.nodes[curr].edges:
+            if seen_edges[edge.index]:
+                continue
 
-def backtrack_internal(curr: Point, dir: Direction, end_pos: Point, graph: Map, curr_length, already_seen, current_bitfield) -> List[Point]:
-    if curr == end_pos:
-        return [end_pos]
-
-    state = (curr, current_bitfield)
-    if (curr, current_bitfield) in already_seen:
-        return None
-    
-    already_seen[(curr, copy.deepcopy(current_bitfield))] = True
-    
-    tile = graph[curr]
-    current_bitfield.set(tile.index)
-
-    max_length = 0
-    max_path = None
-
-    for next_pos, dir in get_next_states(curr, dir, graph):
-        if current_bitfield.is_set(graph[next_pos].index):
-            continue
-
-        path = backtrack_internal(next_pos, dir, end_pos, graph, curr_length+1, already_seen, current_bitfield)
-        if path is None:
-            continue
-
-        if curr_length + len(path) > max_length:
-            max_length = curr_length + len(path)
-            max_path = [curr] + path
-
-    current_bitfield.reset(tile.index)
-    return max_path
-
+            next_pos = edge.get_next(curr)
+            if next_pos is not None:
+                seen_edges[edge.index] = True
+                length = self.__find_max_length_internal(next_pos, curr_length + edge.cost, seen_edges, seen_nodes)
+                if length is not None and (max_length is None or length > max_length):
+                    max_length = length
+                seen_edges[edge.index] = False
+        
+        seen_nodes[curr_node.index] = False
+        return max_length
 
 @profile
 def part_one(entry: List[str]) -> int:
-    graph = Map(entry, True)
-    for i, tile in enumerate(graph.grid[0]):
-        if tile.walkable:
-            start_point = Point(0, i)
-
-    for i, tile in enumerate(graph.grid[-1]):
-        if tile.walkable:
-            end_point = Point(graph.max_x - 1, i)
-    
-    return len(backtrack(start_point, end_point, graph)) - 1
+    graph = Graph.construct(entry, True)
+    return graph.find_max_length()
 
 @profile
 def part_two(entry: List[str]) -> int:
-    graph = Map(entry, False)
-    for i, tile in enumerate(graph.grid[0]):
-        if tile.walkable:
-            start_point = Point(0, i)
-
-    for i, tile in enumerate(graph.grid[-1]):
-        if tile.walkable:
-            end_point = Point(graph.max_x - 1, i)
-    
-    return len(backtrack(start_point, end_point, graph)) - 1
+    graph = Graph.construct(entry, False)
+    return graph.find_max_length()
 
 
 if __name__ == "__main__":
-    import sys
-    sys.setrecursionlimit(10000) 
     print("Part 1 example:", part_one(example_entries))
-    #print("Part 1 entry:", part_one(entries))
+    print("Part 1 entry:", part_one(entries))
 
     print("Part 2 example:", part_two(example_entries))
     print("Part 2 entry:", part_two(entries))
