@@ -29,5 +29,5 @@ class BitSet:
             res ^= word
         return res
     
-    def __eq__(self, other: "BitField") -> bool:
+    def __eq__(self, other: "BitSet") -> bool:
         return self.field == other.field
