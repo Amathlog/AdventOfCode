@@ -130,4 +130,4 @@ if __name__ == "__main__":
     print("Part 1 entry:", part_one(entries, 1000))
 
     print("Part 2 example:", part_two(example_entries))
-    #print("Part 2 entry:", part_two(entries))
+    print("Part 2 entry:", part_two(entries))
