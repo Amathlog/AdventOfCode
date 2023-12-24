@@ -51,6 +51,12 @@ class Point:
     def distance_inf(self, other: "Point"):
         return max(abs(self.x - other.x), abs(self.y - other.y), abs(self.z - other.z))
     
+    def __lt__(self, other: "Point"):
+        return self.x < other.x and self.y < other.y and self.z < other.z
+    
+    def __gt__(self, other: "Point"):
+        return self.x > other.x and self.y > other.y and self.z > other.z
+    
 # return the intersection point, if it exists only a single one, and if it is on segment ab and if it is on segment cd
 def intersect2D(a: Point, b: Point, c: Point, d: Point) -> bool:
     ab = b - a

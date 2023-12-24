@@ -22,17 +22,17 @@ dir_to_incr = [
     Point(-1, -1)
 ]
 
-def advance(pos: Point, dir: Direction) -> Point:
-    return pos + dir_to_incr[dir]
+def advance(pos: Point, dir: Direction, num: int = 1) -> Point:
+    return pos + dir_to_incr[dir] * num
 
-def advance_inplace(pos: Point, dir: Direction) -> None:
-    pos += dir_to_incr[dir]
+def advance_inplace(pos: Point, dir: Direction, num: int = 1) -> None:
+    pos += dir_to_incr[dir] * num
 
-def backtrack(pos: Point, dir: Direction) -> Point:
-    return pos + dir_to_incr[turn_clockwise(dir, 180)]
+def backtrack(pos: Point, dir: Direction, num: int = 1) -> Point:
+    return pos + dir_to_incr[turn_clockwise(dir, 180)] * num
 
-def backtrack_inplace(pos: Point, dir: Direction) -> None:
-    pos += dir_to_incr[turn_clockwise(dir, 180)]
+def backtrack_inplace(pos: Point, dir: Direction, num: int = 1) -> None:
+    pos += dir_to_incr[turn_clockwise(dir, 180)] * num
 
 def turn_clockwise(dir: Direction, angle: int) -> Direction:
     while angle < 0:
