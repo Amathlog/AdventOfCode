@@ -1,4 +1,5 @@
 import math
+from typing import Optional, Tuple
 
 class Point:
     def __init__(self, x: int = 0, y: int = 0, z: int = 0):
@@ -22,6 +23,14 @@ class Point:
         else:
             assert(False)
 
+    def __div__(self, other):
+        if type(other) is float or type(other) is int:
+            return Point(self.x / other, self.y / other, self.z / other)
+        elif type(other) is Point:
+            return Point(self.x / other.x, self.y / other.y, self.z / other.z)
+        else:
+            assert(False)
+
     def __sub__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x - other, self.y - other, self.z - other)
@@ -32,6 +41,9 @@ class Point:
     
     def __eq__(self, other: "Point") -> bool:
         return self.x == other.x and self.y == other.y and self.z == other.z
+    
+    def __ne__(self, other: "Point") -> bool:
+        return not (self == other)
     
     def __repr__(self) -> str:
         return f"({self.x}, {self.y}, {self.z})"
@@ -57,33 +69,59 @@ class Point:
     def __gt__(self, other: "Point"):
         return self.x > other.x and self.y > other.y and self.z > other.z
     
+    def dot(self, other: "Point") -> float:
+        return self.x * other.x + self.y * other.y + self.z * other.z
+    
+    def cross(self, other: "Point") -> "Point":
+        return Point(self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
+    
+    def cross_2D(self, other: "Point") -> float:
+        return self.x * other.y - self.y - other.x
+    
+    def squared_length(self) -> float:
+        return self.dot(self)
+    
+    def length(self) -> float:
+        return math.sqrt(self.squared_length())
+    
 # return the intersection point, if it exists only a single one, and if it is on segment ab and if it is on segment cd
-def intersect2D(a: Point, b: Point, c: Point, d: Point) -> bool:
-    ab = b - a
-    cd = d - c
+def intersect_seg(a: Point, b: Point, c: Point, d: Point) -> Tuple[bool, Optional[Point], Optional[float], Optional[float]]:
+    is_intersecting, impact, t, t_ = intersect(a, b - a, c, d - c)
+    if not is_intersecting:
+        return False, None, None, None
+    return 0 <= t <= 1 and 0 <= t_ <= 1, impact, t, t_
+
+# return the intersection point, if it exists only a single one
+# Parameters are:
+# a: Initial point of a line
+# u: Direction of the line
+# b: Initial point of the second line
+# v: Direction of the second line
+def intersect(a: Point, u: Point, b: Point, v: Point) -> Tuple[bool, Optional[Point], Optional[float], Optional[float]]:
     t = 0
     t_ = 0
-    if ab.x != 0 and ab.y != 0 and cd.x != 0 and cd.y != 0:
-        t_ = ((c.y - a.y) + ab.y * (c.x - a.x) / ab.x) / ((ab.y * cd.d) / ab.x - cd.y)
-        t = (c.x - a.x + t_ * cd.x) / ab.x
-    
-    elif ab.x == 0:
-        if cd.x == 0 or ab.y == 0:
-            return None, 0, 0
-        
-        t_ = (a.x - c.x) / cd.x
-        t = (c.y - a.y + t_ * cd.y) / ab.y
-    
-    elif ab.y == 0:
-        if cd.y == 0:
-            return None, 0, 0
-        
-        t_ = (a.y - c.y) / cd.y
-        t = (c.x - a.x + t_ * cd.x) / ab.x
-    
-    else:    
-        # Other cases are cd.x == 0 or cd.y == 0, so recall it in reverse
-        inter, t_, t = intersect2D(c, d, a, b)
-        return inter, t, t_
 
-    return a + (ab * t), t, t_
+    direction_cross = u.cross(v)
+
+    # Parallel
+    if direction_cross == Point():
+        return False, None, None, None
+    
+    difference = b - a
+    second_cross = difference.cross(v)
+
+    # No intersection
+    if direction_cross.cross(second_cross) != Point():
+        return False, None, None, None
+    
+    t = second_cross.length() / direction_cross.length()
+    if second_cross.dot(direction_cross) < 0:
+        t = -t
+
+    first_cross = difference.cross(u)
+    t_ = first_cross.length() / direction_cross.length()
+    if first_cross.dot(direction_cross) < 0:
+        t_ = -t_
+    
+    impact = u * t + a
+    return True, impact, t, t_
