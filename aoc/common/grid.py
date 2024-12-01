@@ -28,6 +28,21 @@ class Grid:
     def __repr__(self) -> str:
         return str(self.grid)
     
+    def pretty_str(self, cell_size = 1, separator = "") -> str:
+        res = ""
+        for line in self.grid:
+            if type(line) is str:
+                res += line + '\n'
+            else:
+                line_str = [str(v) for v in line]
+                if cell_size > 1:
+                    for i in range(len(line_str)):
+                        if len(line_str[i]) < cell_size:
+                            line_str += " " * (cell_size - len(line_str[i]))
+
+                res += separator.join([str(v) for v in line]) + '\n'
+        return res
+    
     def __eq__(self, other: "Grid") -> bool:
         return self.grid == other.grid
     

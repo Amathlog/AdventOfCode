@@ -29,7 +29,7 @@ if(WIN32)
 set(CMAKE_CXX_FLAGS_DEBUG "/ZI /Od")
 set(CMAKE_CXX_FLAGS_RELEASE "/O2")
 else(WIN32)
-set(CMAKE_CXX_FLAGS_DEBUG "-g")
+set(CMAKE_CXX_FLAGS_DEBUG "-g -fno-limit-debug-info")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 endif(WIN32)
 

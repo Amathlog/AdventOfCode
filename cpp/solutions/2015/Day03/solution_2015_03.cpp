@@ -18,7 +18,7 @@
 using AOCCommon::PointHashl;
 using AOCCommon::Pointl;
 
-constexpr bool s_verbose = true;
+constexpr bool s_verbose = false;
 
 namespace Year2015
 {
