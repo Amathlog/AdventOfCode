@@ -38,9 +38,9 @@ class Grid:
                 if cell_size > 1:
                     for i in range(len(line_str)):
                         if len(line_str[i]) < cell_size:
-                            line_str += " " * (cell_size - len(line_str[i]))
+                            line_str[i] += " " * (cell_size - len(line_str[i]))
 
-                res += separator.join([str(v) for v in line]) + '\n'
+                res += separator.join(line_str) + '\n'
         return res
     
     def __eq__(self, other: "Grid") -> bool:
