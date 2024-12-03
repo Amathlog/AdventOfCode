@@ -29,9 +29,9 @@ if __name__ == "__main__":
 folder = Path(os.path.abspath(__file__)).parent / "aoc"
 
 if len(sys.argv) < 3:
-    year_number = max([item.name for item in folder.iterdir() if item.is_dir()])
+    year_number = max([item.name for item in folder.iterdir() if item.is_dir() and item.name.isnumeric()])
     year = folder / year_number
-    day = max([int(item.name[3:]) for item in year.iterdir() if item.is_dir()])
+    day = max([int(item.name[3:]) for item in year.iterdir() if item.is_dir() and item.name])
     day_number = str(day + 1)
     pass
 else:
