@@ -7,6 +7,31 @@ from aoc.common.point import Point, up, down, left, right
 
 entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 
+dirs = [up, right, down, left]
+
+def simulate_with_new_obstacle(start: Point, dir: int, grid: Grid, seen_states: Set, new_obstacle: Point):
+    states = set()
+    got_out = False
+    curr = start
+    while True:
+        state = (curr, dir)
+        if state in states or state in seen_states:
+            break
+
+        states.add(state)
+        temp = curr + dirs[dir]
+        if not grid.is_valid(temp):
+            got_out = True
+            break
+
+        if grid[temp] == "#" or temp == new_obstacle:
+            dir = (dir + 1) % len(dirs)
+            continue
+
+        curr = temp
+
+    return got_out
+
 @profile
 def solve(entry: List[str]) -> Tuple[int, int]:
     grid = Grid(entry)
@@ -15,7 +40,7 @@ def solve(entry: List[str]) -> Tuple[int, int]:
     unique_obstacles = set()
     curr = None
     dir = 0
-    dirs = [up, right, down, left]
+    
     for i, line in enumerate(entry):
         for j, c in enumerate(line):
             if grid.get(i, j) == "^":
@@ -35,8 +60,10 @@ def solve(entry: List[str]) -> Tuple[int, int]:
         if grid[temp] == "#":
             dir = potential_dir
             continue
-        else:
-            pass
+        elif temp not in unique_pos:
+            if not simulate_with_new_obstacle(curr, potential_dir, grid, states, temp):
+                unique_obstacles.add(temp)
+    
         curr = temp
 
     return len(unique_pos), len(unique_obstacles)
