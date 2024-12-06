@@ -84,6 +84,11 @@ class Point:
     def length(self) -> float:
         return math.sqrt(self.squared_length())
     
+up = Point(-1, 0)
+down = Point(1, 0)
+left = Point(0, -1)
+right = Point(0, 1)
+    
 # return the intersection point, if it exists only a single one, and if it is on segment ab and if it is on segment cd
 def intersect_seg(a: Point, b: Point, c: Point, d: Point) -> Tuple[bool, Optional[Point], Optional[float], Optional[float]]:
     is_intersecting, impact, t, t_ = intersect(a, b - a, c, d - c)
