@@ -15,6 +15,9 @@ class Point:
         else:
             assert(False)
 
+    def __radd__(self, other):
+        return self + other
+
     def __mul__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x * other, self.y * other, self.z * other)
@@ -23,11 +26,22 @@ class Point:
         else:
             assert(False)
 
+    def __rmul__(self, other):
+        return self * other
+
     def __div__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x / other, self.y / other, self.z / other)
         elif type(other) is Point:
             return Point(self.x / other.x, self.y / other.y, self.z / other.z)
+        else:
+            assert(False)
+
+    def __floordiv__(self, other):
+        if type(other) is float or type(other) is int:
+            return Point(self.x // other, self.y // other, self.z // other)
+        elif type(other) is Point:
+            return Point(self.x // other.x, self.y // other.y, self.z // other.z)
         else:
             assert(False)
 
@@ -38,6 +52,12 @@ class Point:
             return Point(self.x - other.x, self.y - other.y, self.z - other.z)
         else:
             assert(False)
+
+    def __rsub__(self, other):
+        return -self + other
+    
+    def __neg__(self):
+        return self * -1
     
     def __eq__(self, other: "Point") -> bool:
         return self.x == other.x and self.y == other.y and self.z == other.z
@@ -72,8 +92,14 @@ class Point:
     def dot(self, other: "Point") -> float:
         return self.x * other.x + self.y * other.y + self.z * other.z
     
+    def __or__(self, other: "Point") -> float:
+        return self.dot(other)
+    
     def cross(self, other: "Point") -> "Point":
         return Point(self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
+    
+    def __xor__(self, other: "Point") -> "Point":
+        return self.cross(other)
     
     def cross_2D(self, other: "Point") -> float:
         return self.x * other.y - self.y - other.x

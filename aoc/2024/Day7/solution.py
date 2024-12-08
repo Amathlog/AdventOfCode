@@ -63,9 +63,6 @@ def reduce(values: List[Tuple[int]]):
 
 @profile
 def solve_async(entry: List[str]) -> int:
-    result_part1 = 0
-    result_part2 = 0
-
     input = []
 
     for e in entry:
