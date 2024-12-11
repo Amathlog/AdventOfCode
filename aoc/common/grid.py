@@ -1,11 +1,15 @@
 from aoc.common.point import Point
-from typing import List, Any
+from typing import List, Any, Iterable
 
 class Grid:
     def __init__(self, grid: List[List[Any]]) -> None:
         self.grid = grid
         self.max_x = len(self.grid)
         self.max_y = len(self.grid[0] if len(self.grid) > 0 else 0)
+
+    @staticmethod
+    def as_int_grid(grid: Iterable[Iterable[Any]]) -> "Grid":
+        return Grid([[int(a) for a in line] for line in grid])
 
     def is_valid_xy(self, x: int, y: int) -> bool:
         return x >= 0 and y >= 0 and x < self.max_x and y < self.max_y
