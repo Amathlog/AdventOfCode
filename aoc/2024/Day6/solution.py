@@ -43,7 +43,7 @@ def solve(entry: List[str]) -> Tuple[int, int]:
     
     for i, line in enumerate(entry):
         for j, c in enumerate(line):
-            if grid.get(i, j) == "^":
+            if c == "^":
                 curr = Point(i,j)
                 break
         if curr is not None:
