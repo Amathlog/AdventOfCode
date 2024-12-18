@@ -67,7 +67,7 @@ class Interpreter:
         
 
     def adv(self, operand: int):
-        self.reg_a //= (2**operand)
+        self.reg_a >>= operand
 
     def bxl(self, operand: int):
         self.reg_b ^= operand
@@ -125,29 +125,48 @@ def process(nb_threads: int, index: int, reg_b: int, reg_c: int, program: List[i
 
 @profile
 def part_two(entry: List[str]) -> int:
-    last_not_working = 245706000000
-
-    track = Value(c_size_t, 0)
-    result = Value(c_size_t, 0)
-    stop = Event()
     reg_b = int(entry[1].split(": ")[1])
     reg_c = int(entry[2].split(": ")[1])
     p = entry[4].split(": ")[1]
     program = [int(c) for c in p.split(",")]
 
-    nb_threads = 31
-    processes = [Process(target=process, args=(nb_threads, last_not_working, reg_b, reg_c, program, stop, result, track if i == 0 else None)) for i in range(nb_threads)]
-    for p in processes:
-        p.start()
+    # Explanation of part 2:
+    # After analysis of the program, I discovered that reg_c is only dependent on reg_a, and is reg_A shifted to right by reg_b
+    # and reg_b only dependant on the 3 least significant bits of A.
+    # And finally for the value written, it depends on the 3 least significant bits of reg_c
+    # It means that at each step, the value of A that matter is between 0 and 2 ^ 11 - 1 (can be shifted at most by 7 + 3 bits)
+    # Also at the end of each loop iteration, A is shifted by 3 to the right.
+    # So by going backward and testing all the values between 0 and 2 ^ 11 - 1, then for all the outputs that matches the end of our program
+    # we can try again by shifting the possible value to 3 to the left, and testing adding another value between 0 and 7.
+    # When a value that wasn't already tested is valid, we keep it for next round, until we have the full program.
+    # And when we have the full program, we take the smallest of the values that produces the same output
 
-    while not stop.is_set():
-        time.sleep(5)
-        print(track.value)
+    possible_reg_a = set(range(2**11))
+    finish = False
+    while not finish:
+        reg_a_valid = []
+        for current_reg_a in possible_reg_a:
+            for temp_reg_a in range(8):
+                reg_a = (current_reg_a << 3) + temp_reg_a
+            
+                interpreter = Interpreter(reg_a, reg_b, reg_c, program)
+                interpreter.exec()
+                valid = True
+                for i in range(len(interpreter.output)):
+                    program_output = program[-i-1]
+                    interpreter_output = interpreter.output[-i-1]
+                    if program_output != interpreter_output:
+                        valid = False
+                        break
 
-    for p in processes:
-        p.join()
-
-    return result.value
+                if valid:
+                    if reg_a not in possible_reg_a:
+                        reg_a_valid.append(reg_a)
+                    if len(interpreter.output) == len(program):
+                        finish = True
+        possible_reg_a = set(reg_a_valid)
+    
+    return min(possible_reg_a)
 
 
 if __name__ == "__main__":
