@@ -206,14 +206,42 @@ def part_one(entry: List[str]) -> int:
         result += int(e[:-1]) * length
     return result
 
+#################################################
+
+def compute_shortest_paths(d):
+    shortest_paths: Dict[str, Dict[str, List[str]]] = {}
+    for start_c, start_pos in d.items():
+        if start_c not in shortest_paths:
+            shortest_paths[start_c] = {}
+        for end_c, end_pos in d.items():
+            if start_c == end_c:
+                continue
+
+            if end_c not in shortest_paths[start_c]:
+                shortest_paths[start_c][end_c] = []
+
+            diff = end_pos - start_pos
+            priority = [right, up, down, left]
+            for p in priority:
+                dot_product = diff.dot(p)
+                if dot_product > 0:
+                    shortest_paths[start_c][end_c].extend([reverse_dir_map[p]] * dot_product)
+    return shortest_paths
+
+shortest_paths_dirs = compute_shortest_paths(dir_keypad)
+shortest_paths_keys = compute_shortest_paths(keypad)
+print(shortest_paths_keys)
+
 @profile
 def part_two(entry: List[str]) -> int:
-    return 0
+    nb_robots = 3
+
+    starting_pos = ["A"] * nb_robots
 
 
 if __name__ == "__main__":
-    print("Part 1 example:", part_one(example_entries))
-    print("Part 1 entry:", part_one(entries))
+    # print("Part 1 example:", part_one(example_entries))
+    # print("Part 1 entry:", part_one(entries))
 
     print("Part 2 example:", part_two(example_entries))
     print("Part 2 entry:", part_two(entries))
