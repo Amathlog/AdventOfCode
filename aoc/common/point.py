@@ -1,5 +1,5 @@
 import math
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 class Point:
     def __init__(self, x: int = 0, y: int = 0, z: int = 0):
@@ -109,6 +109,12 @@ class Point:
     
     def length(self) -> float:
         return math.sqrt(self.squared_length())
+    
+    # Apply the result of the op between each x,y,z of self and other, in place
+    def apply_op_in_place(self, other: "Point", op: Callable):
+        self.x = op(self.x, other.x)
+        self.y = op(self.y, other.y)
+        self.z = op(self.z, other.z)
     
 up = Point(-1, 0)
 down = Point(1, 0)
