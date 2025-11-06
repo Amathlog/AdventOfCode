@@ -1,0 +1,11 @@
+Brivphor,Gorathroth,Lornvalir,Lazagrath,Vanendris,Wyrfyr,Thazynn,Zyneldrith,Kynmarn,Drethroth
+
+L5,R4,L4,R7,L2,R9,L2,R5,L6,R7,L5
+---
+Quirthyn,Vyrlyr,Ralryn,Narural,Valgnaris,Tirzar,Zarluth,Jarjoris,Gaerpyr,Urithvoran,Fyndnix,Elvaragrath,Tharnalar,Krynndrith,Agnarthar,Urakzris,Azmarlar,Lazynn,Xendaxis,Gavgryph
+
+L18,R14,L17,R8,L10,R18,L13,R7,L18,R13,L5,R17,L5,R17,L5,R8,L5,R17,L5,R12,L7,R6,L12,R7,L8,R8,L12,R12,L16
+---
+Karthquor,Zyngaz,Krynntor,Shaelroth,Zaljor,Fencarth,Agnarzryn,Lornverax,Kazvyr,Mortor,Felnxeth,Anoreldrith,Adalvel,Tazfyr,Harindor,Kronmirath,Morasis,Palthnoris,Norakynn,Tharfal,Garlorath,Aurekryth,Rythanmal,Nymirix,Sorgaz,Grimcalyx,Urdrith,Iskaroryx,Eryural,Narnarel
+
+L24,R38,L14,R9,L42,R47,L42,R39,L7,R5,L45,R41,L41,R5,L21,R7,L13,R40,L26,R29,L5,R34,L5,R37,L5,R37,L5,R7,L5,R41,L5,R31,L5,R17,L5,R46,L5,R13,L5,R30,L31,R14,L44,R41,L47,R15,L36,R7,L12,R16,L15,R15,L5,R36,L25,R39,L36,R33,L23
