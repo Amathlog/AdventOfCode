@@ -1,5 +1,153 @@
+import itertools
 import math
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, Generator, Union
+
+class Vector:
+    def __init__(self, *args):
+        assert(len(args) >= 2 and len(args) <= 4)
+        self.values = list(args)
+
+    def __len__(self):
+        return len(self.values)
+    
+    def __getitem__(self, idx: int):
+        return self.values[idx] if 0 <= idx < 4 else 0
+
+    @property
+    def x(self):
+        return self.values[0]
+    
+    @property
+    def y(self):
+        return self.values[1]
+    
+    @property
+    def z(self):
+        return self.values[2] if len(self.values) > 2 else 0
+    
+    @property
+    def w(self):
+        return self.values[3] if len(self.values) > 3 else 0
+    
+    def zip(self, other: "Vector") -> Generator:
+        for i in range(len(self)):
+            yield self[i], other[i]
+    
+    def apply_in_place(self, op: Callable) -> None:
+        self.values = list(map(op, self.values))
+
+    def apply(self, op: Callable) -> "Vector":
+        return self.__class__(*map(op, self.values))
+
+    def apply_in_place_with_other(self, other: "Vector", op: Callable) -> None:
+        self.values = list(itertools.starmap(op, self.zip(other)))
+
+    def apply_with_other(self, other: "Vector", op: Callable) -> "Vector":
+       return self.__class__(*itertools.starmap(op, self.zip(other)))
+    
+    def math_op(self, other: "Vector", op: Callable) -> "Vector":
+        if isinstance(other, float) or isinstance(other, int):
+            return self.apply(lambda a: op(a, other))
+        elif isinstance(other, Vector):
+            return self.apply_with_other(other, op)
+        else:
+            assert(False)
+    
+    def __add__(self, other) -> "Vector":
+        return self.math_op(other, lambda a,b: a+b)
+
+    def __mul__(self, other) -> "Vector":
+        return self.math_op(other, lambda a,b: a*b)
+    
+    def __sub__(self, other) -> "Vector":
+        return self.math_op(other, lambda a,b: a-b)
+    
+    def __truediv__(self, other) -> "Vector":
+        return self.math_op(other, lambda a,b: a/b)
+    
+    def __floordiv__(self, other) -> "Vector":
+        return self.math_op(other, lambda a,b: a//b)
+
+    def __radd__(self, other) -> "Vector":
+        return self + other
+    
+    def __rmul__(self, other) -> "Vector":
+        return self * other
+    
+    def __rsub__(self, other) -> "Vector":
+        return self - other
+    
+    def __rtruediv__(self, other) -> "Vector":
+        return self / other
+    
+    def __rfloordiv__(self, other) -> "Vector":
+        return self // other
+    
+    def __neg__(self) -> "Vector":
+        return self * -1
+    
+    def __eq__(self, other: "Vector") -> bool:
+        return all((a == b for a,b in self.zip(other)))
+    
+    def __ne__(self, other: "Vector") -> bool:
+        return not (self == other)
+    
+    def __repr__(self) -> str:
+        return str(tuple(self.values))
+    
+    def __hash__(self) -> int:
+        return hash(self.values)
+    
+    def manathan_distance(self, other: "Vector"):
+        return sum((abs(a - b) for a,b in self.zip(other)))
+    
+    def squared_distance(self, other: "Vector"):
+        return sum(((a - b)**2 for a,b in self.zip(other)))
+
+    def distance(self, other: "Vector"):
+        return math.sqrt(self.squared_distance(other))
+    
+    def distance_inf(self, other: "Vector"):
+        return max((a - b for a,b in self.zip(other)))
+    
+    def __lt__(self, other: "Vector"):
+        return all((a < b for a,b in self.zip(other)))
+    
+    def __le__(self, other: "Vector"):
+        return all((a <= b for a,b in self.zip(other)))
+    
+    def __gt__(self, other: "Vector"):
+        return all((a > b for a,b in self.zip(other)))
+    
+    def __ge__(self, other: "Vector"):
+        return all((a >= b for a,b in self.zip(other)))
+    
+    def dot(self, other: "Vector") -> float:
+        return sum((a * b for a,b in self.zip(other)))
+    
+    def __or__(self, other: "Vector") -> float:
+        return self.dot(other)
+    
+    def cross(self, other: "Vector") -> Union[float, "Vector", None]:
+        if len(self) == 2:
+            return self.x * other.y - self.y - other.x
+        elif len(self) == 3:
+            return self.__class__(self.y * other.z - self.z * other.y, self.z * other.x - self.x * other.z, self.x * other.y - self.y * other.x)
+        else:
+            return None
+    
+    def __xor__(self, other: "Vector") -> "Vector":
+        return self.cross(other)
+    
+    def cross_2D(self, other: "Vector") -> float:
+        return self.x * other.y - self.y - other.x
+    
+    def squared_length(self) -> float:
+        return self.dot(self)
+    
+    def length(self) -> float:
+        return math.sqrt(self.squared_length())
+
 
 class Point:
     def __init__(self, x: int = 0, y: int = 0, z: int = 0):
@@ -29,7 +177,7 @@ class Point:
     def __rmul__(self, other):
         return self * other
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x / other, self.y / other, self.z / other)
         elif type(other) is Point:
