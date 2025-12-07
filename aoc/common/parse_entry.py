@@ -4,7 +4,7 @@ from pathlib import Path
 
 default_separator = "---"
 
-def parse_entry_multiple_parts(path: str, separator: str, expected_parts: int) -> List[List[str]]:
+def parse_entry_multiple_parts(path: str, separator: str, expected_parts: int, should_strip: bool = True) -> List[List[str]]:
     with path.open("r") as f:
         entries = f.readlines()
 
@@ -13,7 +13,8 @@ def parse_entry_multiple_parts(path: str, separator: str, expected_parts: int) -
 
     indexes = [-1]
     for i in range(len(entries)):
-        entries[i] = entries[i].strip()
+        if should_strip:
+            entries[i] = entries[i].strip()
         if entries[i] == separator:
             indexes.append(i)
 
@@ -27,22 +28,23 @@ def parse_entry_multiple_parts(path: str, separator: str, expected_parts: int) -
     assert len(result) == expected_parts
     return result
 
-def parse_entry(path: str) -> List[str]:
+def parse_entry(path: str, should_strip: bool = True) -> List[str]:
     with path.open("r") as f:
         entries = f.readlines()
 
-    for i in range(len(entries)):
-        entries[i] = entries[i].strip()
+    if should_strip:
+        for i in range(len(entries)):
+            entries[i] = entries[i].strip()
 
     return entries
 
 
-def parse_all(relative_file: str, *args: str) -> List[str]:
+def parse_all(relative_file: str, *args: str, should_strip: bool = True) -> List[str]:
     root = Path(os.path.abspath(relative_file)).parent
 
-    return [parse_entry(root / file) for file in args]
+    return [parse_entry(root / file, should_strip=should_strip) for file in args]
 
-def parse_all_multiple_parts(relative_file: str, separator: str, expected_parts: int, *args: str) -> List[str]:
+def parse_all_multiple_parts(relative_file: str, separator: str, expected_parts: int, *args: str, should_strip: bool = True) -> List[str]:
     root = Path(os.path.abspath(relative_file)).parent
 
-    return [parse_entry_multiple_parts(root / file, separator, expected_parts) for file in args]
+    return [parse_entry_multiple_parts(root / file, separator, expected_parts, should_strip=should_strip) for file in args]
