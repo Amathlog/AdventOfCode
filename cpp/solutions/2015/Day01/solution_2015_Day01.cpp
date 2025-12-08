@@ -1,5 +1,4 @@
 #include <common/test_case.h>
-#include <gtest/gtest.h>
 
 #include "parser.h"
 #include "path_utils.h"
@@ -74,27 +73,31 @@ bool Solution::SolvePartTwo(const AOCResult& result, bool verbose)
 } // namespace Day01
 } // namespace Year2015
 
-TEST(Year2015, Day01_Example)
+TEST_CASE("2015_Day01", "[2015]")
 {
-    std::vector<AOCResult> allExamples = {
-        {"(())", "0", "never"},    {"()()", "0", "never"}, {"(((", "3", "never"},
-        {"(()(()(", "3", "never"}, {"))(((((", "3", "1"},  {"())", "-1", "3"},
-        {"))(", "-1", "1"},        {")))", "-3", "1"},     {")())())", "-3", "1"},
-    };
-
-    for (const AOCResult& result : allExamples)
+    SECTION("Example")
     {
-        Year2015::Day01::Solution solution;
-        ASSERT_TRUE(solution.SolvePartOne(result, false));
-        ASSERT_TRUE(solution.SolvePartTwo(result, false));
-    }
-}
+        std::vector<AOCResult> allExamples = {
+            {"(())", "0", "never"},    {"()()", "0", "never"}, {"(((", "3", "never"},
+            {"(()(()(", "3", "never"}, {"))(((((", "3", "1"},  {"())", "-1", "3"},
+            {"))(", "-1", "1"},        {")))", "-3", "1"},     {")())())", "-3", "1"},
+        };
 
-TEST(Year2015, Day01_Entry)
-{
-    std::string entry = AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day01" / "entry.txt");
-    AOCResult result(std::move(entry), "232", "1783");
-    Year2015::Day01::Solution solution;
-    ASSERT_TRUE(solution.SolvePartOne(result, false));
-    ASSERT_TRUE(solution.SolvePartTwo(result, false));
+        for (const AOCResult& result : allExamples)
+        {
+            Year2015::Day01::Solution solution;
+            REQUIRE(solution.SolvePartOne(result, false));
+            REQUIRE(solution.SolvePartTwo(result, false));
+        }
+    }
+
+    SECTION("Entry")
+    {
+        std::string entry =
+            AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day01" / "entry.txt");
+        AOCResult result(std::move(entry), "232", "1783");
+        Year2015::Day01::Solution solution;
+        REQUIRE(solution.SolvePartOne(result, false));
+        REQUIRE(solution.SolvePartTwo(result, false));
+    }
 }

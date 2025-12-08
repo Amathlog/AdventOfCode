@@ -1,22 +1,17 @@
-# Add GTest
-set(BUILD_GMOCK OFF)
-enable_testing()
-include_directories(${gtest_SOURCE_DIR}/include ${gtest_SOURCE_DIR})
+find_package(Catch2 3 REQUIRED)
 
 include_directories(${AdventOfCode_SOURCE_DIR}/common/include)
 include_directories(${AdventOfCode_SOURCE_DIR}/tests_common)
 
-file(GLOB_RECURSE TEST_COMMON_SRC
-    "${AdventOfCode_SOURCE_DIR}/tests_common/**/*.cpp"
+file(GLOB_RECURSE SOLUTIONS_SRC
+    "${AdventOfCode_SOURCE_DIR}/tests_common/**/**/*.cpp"
     "${AdventOfCode_SOURCE_DIR}/tests_common/*.cpp"
 )
 
-add_executable(TestsCommon ${TEST_COMMON_SRC})
-target_link_libraries(TestsCommon AOCCommon gtest_main)
+add_executable(TestsCommon ${SOLUTIONS_SRC})
+target_link_libraries(TestsCommon PRIVATE AOCCommon Catch2::Catch2WithMain)
 set_target_properties(TestsCommon PROPERTIES FOLDER "cpp")
-if (DEBUG)
-add_definitions(-D_GLIBCXX_DEBUG)
-endif()
 
-#include(GoogleTest)
-#gtest_discover_tests(NesEmulatorUnitTests)
+include(CTest)
+include(Catch)
+catch_discover_tests(TestsCommon)

@@ -1,10 +1,15 @@
+#include <catch2/catch_test_macros.hpp>
+
 #include <filesystem>
 #include <gtest/gtest.h>
 
 #include <path_utils.h>
 
-TEST(PathUtils, FindRootFile)
+TEST_CASE("PathUtils")
 {
-    std::filesystem::path rootPath = AOCCommon::GetRootPath();
-    ASSERT_TRUE(std::filesystem::exists(rootPath / ".root_file"));
+    SECTION("FindRootFile")
+    {
+        std::filesystem::path rootPath = AOCCommon::GetRootPath();
+        REQUIRE(std::filesystem::exists(rootPath / ".root_file"));
+    }
 }

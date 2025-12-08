@@ -1,33 +1,37 @@
-#include <string>
+#include <catch2/catch_test_macros.hpp>
 
 #include <cstring>
-#include <gtest/gtest.h>
+#include <string>
+
 #include <parser.h>
 #include <utils/utils.h>
 
-TEST(Parser, ReadFile)
+TEST_CASE("Parser")
 {
-    std::string res = AOCCommon::ParseFile(Utils::GetDataFolder() / "simple_file.txt");
-    ASSERT_FALSE(res.empty());
-}
+    SECTION("ReadFile")
+    {
+        std::string res = AOCCommon::ParseFile(Utils::GetDataFolder() / "simple_file.txt");
+        REQUIRE_FALSE(res.empty());
+    }
 
-TEST(Parser, ReadLinesWithTrim)
-{
-    std::vector<std::string> res = AOCCommon::ParseLines(Utils::GetDataFolder() / "simple_file.txt");
-    ASSERT_EQ(res.size(), 3);
+    SECTION("ReadLinesWithTrim")
+    {
+        std::vector<std::string> res = AOCCommon::ParseLines(Utils::GetDataFolder() / "simple_file.txt");
+        REQUIRE(res.size() == 3);
 
-    ASSERT_EQ(res[0], "Hello World!");
-    ASSERT_EQ(res[1], "AdventOfCode");
-    ASSERT_EQ(res[2], "Blablabla");
-}
+        REQUIRE(res[0] == "Hello World!");
+        REQUIRE(res[1] == "AdventOfCode");
+        REQUIRE(res[2] == "Blablabla");
+    }
 
-TEST(Parser, ReadLinesWithoutTrim)
-{
-    std::vector<std::string> res = AOCCommon::ParseLines(Utils::GetDataFolder() / "simple_file.txt", false);
-    ASSERT_EQ(res.size(), 4);
+    SECTION("ReadLinesWithoutTrim")
+    {
+        std::vector<std::string> res = AOCCommon::ParseLines(Utils::GetDataFolder() / "simple_file.txt", false);
+        REQUIRE(res.size() == 4);
 
-    ASSERT_EQ(res[0], "Hello World!");
-    ASSERT_EQ(res[1], "AdventOfCode");
-    ASSERT_EQ(res[2], "Blablabla");
-    ASSERT_TRUE(res[3].empty());
+        REQUIRE(res[0] == "Hello World!");
+        REQUIRE(res[1] == "AdventOfCode");
+        REQUIRE(res[2] == "Blablabla");
+        REQUIRE(res[3].empty());
+    }
 }

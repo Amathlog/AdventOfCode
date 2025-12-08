@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <common/test_case.h>
 #include <cstdint>
-#include <gtest/gtest.h>
 
 #include <iterator>
 #include <maths/point.h>
@@ -107,44 +106,49 @@ bool Solution::SolvePartTwo(const AOCResult& result, bool verbose)
 } // namespace Day03
 } // namespace Year2015
 
-TEST(Year2015, Day03_Example)
+TEST_CASE("2015_Day03", "[2015]")
 {
-    std::string entry = AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day03" / "example.txt");
-    AOCResult result(std::move(entry), "4", "3");
-
-    Year2015::Day03::Solution solution;
-    if (s_verbose)
+    SECTION("Example")
     {
-        std::cout << "Part 1:" << std::endl;
+        std::string entry =
+            AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day03" / "example.txt");
+        AOCResult result(std::move(entry), "4", "3");
+
+        Year2015::Day03::Solution solution;
+        if (s_verbose)
+        {
+            std::cout << "Part 1:" << std::endl;
+        }
+
+        REQUIRE(solution.SolvePartOne(result, s_verbose));
+
+        if (s_verbose)
+        {
+            std::cout << "Part 2:" << std::endl;
+        }
+
+        REQUIRE(solution.SolvePartTwo(result, s_verbose));
     }
 
-    ASSERT_TRUE(solution.SolvePartOne(result, s_verbose));
-
-    if (s_verbose)
+    SECTION("Entry")
     {
-        std::cout << "Part 2:" << std::endl;
+        std::string entry =
+            AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day03" / "entry.txt");
+        AOCResult result(std::move(entry), "2592", "2360");
+
+        Year2015::Day03::Solution solution;
+        if (s_verbose)
+        {
+            std::cout << "Part 1:" << std::endl;
+        }
+
+        REQUIRE(solution.SolvePartOne(result, s_verbose));
+
+        if (s_verbose)
+        {
+            std::cout << "Part 2:" << std::endl;
+        }
+
+        REQUIRE(solution.SolvePartTwo(result, s_verbose));
     }
-
-    ASSERT_TRUE(solution.SolvePartTwo(result, s_verbose));
-}
-
-TEST(Year2015, Day03_Entry)
-{
-    std::string entry = AOCCommon::ParseFile(AOCCommon::GetRootPath() / "solutions" / "2015" / "Day03" / "entry.txt");
-    AOCResult result(std::move(entry), "2592", "2360");
-
-    Year2015::Day03::Solution solution;
-    if (s_verbose)
-    {
-        std::cout << "Part 1:" << std::endl;
-    }
-
-    ASSERT_TRUE(solution.SolvePartOne(result, s_verbose));
-
-    if (s_verbose)
-    {
-        std::cout << "Part 2:" << std::endl;
-    }
-
-    ASSERT_TRUE(solution.SolvePartTwo(result, s_verbose));
 }

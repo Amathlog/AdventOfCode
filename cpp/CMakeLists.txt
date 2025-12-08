@@ -35,8 +35,6 @@ endif(WIN32)
 
 option(BUILD_TESTS "Build the tests" ON)
 
-add_subdirectory(${AdventOfCode_SOURCE_DIR}/external/googletest build)
-
 add_subdirectory("common")
 add_subdirectory("solutions")
 add_subdirectory("tests_common")
