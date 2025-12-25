@@ -1,5 +1,6 @@
 import itertools
 import math
+import numpy as np
 from typing import Optional, Tuple, Callable
 
 class Point:
@@ -11,7 +12,7 @@ class Point:
     def __add__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x + other, self.y + other, self.z + other)
-        elif type(other) is Point:
+        elif isinstance(other, Point):
             return Point(self.x + other.x, self.y + other.y, self.z + other.z)
         else:
             assert(False)
@@ -22,7 +23,7 @@ class Point:
     def __mul__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x * other, self.y * other, self.z * other)
-        elif type(other) is Point:
+        elif isinstance(other, Point):
             return Point(self.x * other.x, self.y * other.y, self.z * other.z)
         else:
             assert(False)
@@ -33,7 +34,7 @@ class Point:
     def __truediv__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x / other, self.y / other, self.z / other)
-        elif type(other) is Point:
+        elif isinstance(other, Point):
             return Point(self.x / other.x, self.y / other.y, self.z / other.z)
         else:
             assert(False)
@@ -41,7 +42,7 @@ class Point:
     def __floordiv__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x // other, self.y // other, self.z // other)
-        elif type(other) is Point:
+        elif isinstance(other, Point):
             return Point(self.x // other.x, self.y // other.y, self.z // other.z)
         else:
             assert(False)
@@ -49,7 +50,7 @@ class Point:
     def __sub__(self, other):
         if type(other) is float or type(other) is int:
             return Point(self.x - other, self.y - other, self.z - other)
-        elif type(other) is Point:
+        elif isinstance(other, Point):
             return Point(self.x - other.x, self.y - other.y, self.z - other.z)
         else:
             assert(False)
@@ -71,6 +72,9 @@ class Point:
     
     def __hash__(self) -> int:
         return hash((self.x, self.y, self.z))
+    
+    def __array__(self, dtype=None, copy=None) -> tuple:
+        return np.array((self.x, self.y, self.z), dtype=dtype, copy=copy)
     
     def manathan_distance(self, other: "Point"):
         return abs(self.x - other.x) + abs(self.y - other.y) + abs(self.z - other.z)
@@ -103,7 +107,7 @@ class Point:
         return self.cross(other)
     
     def cross_2D(self, other: "Point") -> float:
-        return self.x * other.y - self.y - other.x
+        return self.x * other.y - self.y * other.x
     
     def squared_length(self) -> float:
         return self.dot(self)
@@ -116,6 +120,16 @@ class Point:
         self.x = op(self.x, other.x)
         self.y = op(self.y, other.y)
         self.z = op(self.z, other.z)
+
+class Point2D(Point):
+    def __init__(self, x = 0, y = 0):
+        super().__init__(x, y, 0)
+
+    def __array__(self, dtype=None, copy=None):
+        return np.array((self.x, self.y), dtype=dtype, copy=copy)
+    
+    def __repr__(self) -> str:
+        return f"({self.x}, {self.y})"
     
 up = Point(-1, 0)
 down = Point(1, 0)
