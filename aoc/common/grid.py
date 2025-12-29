@@ -1,5 +1,5 @@
 from aoc.common.point import Point
-from typing import List, Any, Iterable
+from typing import List, Any, Iterable, Generator
 
 class Grid:
     def __init__(self, grid: List[List[Any]]) -> None:
@@ -13,6 +13,16 @@ class Grid:
 
     def is_valid_xy(self, x: int, y: int) -> bool:
         return x >= 0 and y >= 0 and x < self.max_x and y < self.max_y
+    
+    def iterate_row_first(self) -> Generator[Any]:
+        for row in self.grid:
+            for c in row:
+                yield c
+
+    def iterate_col_first(self) -> Generator[Any]:
+        for j in range(self.max_y):
+            for i in range(self.max_x):
+                yield self.get(i, j)
 
     def is_valid(self, p: Point) -> bool:
         return self.is_valid_xy(p.x, p.y)

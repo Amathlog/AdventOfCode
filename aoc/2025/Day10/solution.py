@@ -5,6 +5,9 @@ from aoc.common.utils import profile
 import re
 from aoc.common.astar import AStar_Solver
 import math
+import numpy as np
+import scipy
+from scipy.optimize import LinearConstraint
 
 entries, example_entries = parse_all(__file__, "entry.txt", "example.txt")
 
@@ -23,10 +26,6 @@ class Machine():
         target = sum([(1 if c == "#" else 0) << i for i,c in enumerate(target_regex.findall(entry)[0])])
         buttons = [tuple(map(int, b.split(","))) for b in buttons_regex.findall(entry)]
         joltage = tuple(map(int, joltage_regex.findall(entry)[0].split(",")))
-
-        nb_bits_joltage = sum((0 if j == 0 else math.ceil(math.log2(j)) for j in joltage))
-        print(nb_bits_joltage)
-
         return Machine(target, buttons, joltage)
     
 class MachineOnline(AStar_Solver):
@@ -107,10 +106,24 @@ def solve(entry: List[str]) -> int:
         path_1 = MachineOnline(machine).solve()
         result_1 += len(path_1) - 1
 
-        path_2 = MachineJoltage(machine).solve()
-        result_2 += len(path_2) - 1
+        nb_buttons = len(machine.buttons)
+        nb_joltage = len(machine.joltage)
 
-        print("Done")
+        A_matrix = np.zeros((nb_joltage, nb_buttons), dtype=np.int32)
+        for j, button in enumerate(machine.buttons):
+            for i in button:
+                A_matrix[i,j] = 1
+
+        b = np.array(machine.joltage, dtype=np.int32)
+        c = np.ones(nb_buttons, dtype=np.int32)
+
+        result = scipy.optimize.milp(c, integrality=c, constraints=LinearConstraint(A_matrix, b, b), options={"presolve": False})
+
+        # Validation
+        temp = np.asarray(A_matrix @ result.x, np.int32)
+        assert((temp == b).all())
+
+        result_2 += int(sum(result.x))
 
     return result_1, result_2
 
